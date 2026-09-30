@@ -1,0 +1,6 @@
+{
+  "name": "HERMES — Sistema de Gobierno y Arquitectura de Sistemas Digitales",
+  "description": "Consola de ingeniería, arquitectura, gobierno, epistemología de evidencia y operación de sistemas complejos de Hermes Agent.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
