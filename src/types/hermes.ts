@@ -13,12 +13,22 @@ export type EpistemologicalState =
   | 'VERIFIED'
   | 'PRODUCTION_READY';
 
-export type CapabilityOrigin = 'builtin' | 'local' | 'manifest_only' | 'optional' | 'unverified_claim';
+export type CapabilityOrigin =
+  'builtin' | 'local' | 'manifest_only' | 'optional' | 'unverified_claim';
 
 export interface CapabilityItem {
   id: string;
   name: string;
-  category: 'core' | 'git' | 'filesystem' | 'network' | 'secret_scan' | 'browser' | 'ai_provider' | 'system' | 'misc';
+  category:
+    | 'core'
+    | 'git'
+    | 'filesystem'
+    | 'network'
+    | 'secret_scan'
+    | 'browser'
+    | 'ai_provider'
+    | 'system'
+    | 'misc';
   origin: CapabilityOrigin;
   epistemologicalState: EpistemologicalState;
   hasSkillMd: boolean;
@@ -30,7 +40,8 @@ export interface CapabilityItem {
 export interface MasterSection {
   number: number;
   title: string;
-  category: 'context' | 'identity' | 'architecture' | 'epistemology' | 'security' | 'phases' | 'rules';
+  category:
+    'context' | 'identity' | 'architecture' | 'epistemology' | 'security' | 'phases' | 'rules';
   summary: string;
   fullText: string;
   invariants: string[];
@@ -39,10 +50,7 @@ export interface MasterSection {
 }
 
 export type DecisionVerdict =
-  | 'NO_AGENT_NEEDED'
-  | 'SINGLE_AGENT_SUFFICIENT'
-  | 'MULTI_AGENT_REQUIRED'
-  | 'HYBRID_SYSTEM_REQUIRED';
+  'NO_AGENT_NEEDED' | 'SINGLE_AGENT_SUFFICIENT' | 'MULTI_AGENT_REQUIRED' | 'HYBRID_SYSTEM_REQUIRED';
 
 export interface DecisionParameters {
   problemName: string;

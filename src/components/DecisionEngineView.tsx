@@ -4,20 +4,9 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { evaluateArchitectureDecision } from '../utils/hermesEngine';
-import { DecisionParameters } from '../types/hermes';
-import {
-  Cpu,
-  Layers,
-  AlertTriangle,
-  CheckCircle2,
-  Sliders,
-  Sparkles,
-  HelpCircle,
-  FileCode,
-  ShieldAlert,
-  ArrowRight,
-} from 'lucide-react';
+import { evaluateArchitectureDecision } from '../utils';
+import { DecisionParameters } from '../types';
+import { AlertTriangle, CheckCircle2, Sliders, Sparkles, FileCode } from 'lucide-react';
 
 const PRESET_PROBLEMS: { label: string; params: DecisionParameters }[] = [
   {
@@ -97,7 +86,7 @@ export const DecisionEngineView: React.FC = () => {
     setParams((prev) => ({ ...prev, [key]: value }));
   };
 
-  const loadPreset = (preset: typeof PRESET_PROBLEMS[0]) => {
+  const loadPreset = (preset: (typeof PRESET_PROBLEMS)[0]) => {
     setParams(preset.params);
   };
 
@@ -151,9 +140,10 @@ export const DecisionEngineView: React.FC = () => {
               Motor de Decisión: "¿Se Necesita un Agente?"
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              Hermes no "agentifica" todos los problemas por inercia o moda. Multiagente no es un fin en sí mismo.
-              La decisión entre Software Tradicional, Agente Único, Multiagente o Sistema Híbrido se deduce
-              rigurosamente de requisitos, determinismo, coste, latencia y verificabilidad.
+              Hermes no "agentifica" todos los problemas por inercia o moda. Multiagente no es un
+              fin en sí mismo. La decisión entre Software Tradicional, Agente Único, Multiagente o
+              Sistema Híbrido se deduce rigurosamente de requisitos, determinismo, coste, latencia y
+              verificabilidad.
             </p>
           </div>
         </div>
@@ -203,7 +193,8 @@ export const DecisionEngineView: React.FC = () => {
                 className="w-full accent-indigo-500 cursor-pointer h-1.5 bg-slate-950 rounded-lg"
               />
               <span className="text-[10px] text-slate-500">
-                1 = Respuestas heurísticas tolerables • 10 = Cero margen de error matemático o de lógica.
+                1 = Respuestas heurísticas tolerables • 10 = Cero margen de error matemático o de
+                lógica.
               </span>
             </div>
 
@@ -211,7 +202,9 @@ export const DecisionEngineView: React.FC = () => {
             <div>
               <div className="flex justify-between font-mono mb-1">
                 <span className="text-slate-300">Riesgo de Seguridad & Side-Effects</span>
-                <span className="text-rose-400 font-bold">{params.securityRiskSideEffects} / 10</span>
+                <span className="text-rose-400 font-bold">
+                  {params.securityRiskSideEffects} / 10
+                </span>
               </div>
               <input
                 type="range"
@@ -222,7 +215,8 @@ export const DecisionEngineView: React.FC = () => {
                 className="w-full accent-rose-500 cursor-pointer h-1.5 bg-slate-950 rounded-lg"
               />
               <span className="text-[10px] text-slate-500">
-                1 = Solo lectura / sandbox trivial • 10 = Destrucción de datos, comandos shell, secretos.
+                1 = Solo lectura / sandbox trivial • 10 = Destrucción de datos, comandos shell,
+                secretos.
               </span>
             </div>
 
@@ -249,7 +243,9 @@ export const DecisionEngineView: React.FC = () => {
             <div>
               <div className="flex justify-between font-mono mb-1">
                 <span className="text-slate-300">Coordinación Multipartita / Especialización</span>
-                <span className="text-purple-400 font-bold">{params.multiPartyCoordination} / 10</span>
+                <span className="text-purple-400 font-bold">
+                  {params.multiPartyCoordination} / 10
+                </span>
               </div>
               <input
                 type="range"
@@ -260,7 +256,8 @@ export const DecisionEngineView: React.FC = () => {
                 className="w-full accent-purple-500 cursor-pointer h-1.5 bg-slate-950 rounded-lg"
               />
               <span className="text-[10px] text-slate-500">
-                1 = Rol único y cerrado • 10 = Múltiples entidades independientes con metas opuestas.
+                1 = Rol único y cerrado • 10 = Múltiples entidades independientes con metas
+                opuestas.
               </span>
             </div>
 
@@ -268,7 +265,9 @@ export const DecisionEngineView: React.FC = () => {
             <div>
               <div className="flex justify-between font-mono mb-1">
                 <span className="text-slate-300">Sensibilidad a Coste de Tokens / Inferencia</span>
-                <span className="text-amber-400 font-bold">{params.costBudgetSensitivity} / 10</span>
+                <span className="text-amber-400 font-bold">
+                  {params.costBudgetSensitivity} / 10
+                </span>
               </div>
               <input
                 type="range"
@@ -309,7 +308,9 @@ export const DecisionEngineView: React.FC = () => {
           {/* Main Verdict Card */}
           <div className={`bg-slate-900 border-2 rounded-xl p-5 shadow-xl ${style.border}`}>
             <div className="flex items-center justify-between gap-3 mb-3">
-              <span className={`px-2.5 py-1 rounded text-xs font-mono font-bold border ${style.badge}`}>
+              <span
+                className={`px-2.5 py-1 rounded text-xs font-mono font-bold border ${style.badge}`}
+              >
                 VEREDICTO ARQUITECTÓNICO DE HERMES
               </span>
               <span className="text-xs font-mono text-slate-400">Evaluado en tiempo real</span>
@@ -327,7 +328,9 @@ export const DecisionEngineView: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono mb-4">
               <div className="bg-slate-950 p-2.5 rounded border border-slate-800">
                 <span className="text-slate-500 block text-[10px]">Determinismo:</span>
-                <span className="text-slate-200 font-semibold">{decision.tradeoffs.determinism}</span>
+                <span className="text-slate-200 font-semibold">
+                  {decision.tradeoffs.determinism}
+                </span>
               </div>
               <div className="bg-slate-950 p-2.5 rounded border border-slate-800">
                 <span className="text-slate-500 block text-[10px]">Coste de Inferencia:</span>

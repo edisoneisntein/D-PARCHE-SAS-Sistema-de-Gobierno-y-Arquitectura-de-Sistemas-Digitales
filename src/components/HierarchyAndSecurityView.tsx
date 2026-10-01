@@ -4,20 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { HIERARCHY_SOURCES } from '../data/hermesMasterData';
-import {
-  Lock,
-  ShieldCheck,
-  AlertTriangle,
-  Key,
-  Hash,
-  Scale,
-  ArrowRight,
-  CheckCircle2,
-  XCircle,
-  FileCode,
-  ShieldAlert,
-} from 'lucide-react';
+import { HIERARCHY_SOURCES } from '../data';
+import { Key, Hash, Scale, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
 
 export const HierarchyAndSecurityView: React.FC = () => {
   const [sourceA, setSourceA] = useState<number>(7);
@@ -27,7 +15,7 @@ export const HierarchyAndSecurityView: React.FC = () => {
   const [patchCode, setPatchCode] = useState(
     `export function calculateRisk(score: number): boolean {\n  return score > 85;\n}`
   );
-  const [baseApprovedHash] = useState('d3b07384d113edec49eaa6238ad5ff00');
+  const _baseApprovedHash = 'd3b07384d113edec49eaa6238ad5ff00';
 
   // Simple string hash function for demo
   const computeSimpleHash = (str: string) => {
@@ -42,9 +30,11 @@ export const HierarchyAndSecurityView: React.FC = () => {
   };
 
   const currentPatchHash = computeSimpleHash(patchCode);
-  const isPatchApproved = currentPatchHash === computeSimpleHash(
-    `export function calculateRisk(score: number): boolean {\n  return score > 85;\n}`
-  );
+  const isPatchApproved =
+    currentPatchHash ===
+    computeSimpleHash(
+      `export function calculateRisk(score: number): boolean {\n  return score > 85;\n}`
+    );
 
   // Secret Sanitizer Simulator
   const [rawPrompt, setRawPrompt] = useState(
@@ -80,8 +70,9 @@ export const HierarchyAndSecurityView: React.FC = () => {
               Jerarquía de Fuentes & Invariantes de Seguridad Inmutables
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              Para resolver contradicciones futuras en Hermes, rige una escala de precedencia de 7 niveles.
-              Asimismo, las políticas de seguridad (frontera de secretos y aprobación atada a hash) no admiten excepciones.
+              Para resolver contradicciones futuras en Hermes, rige una escala de precedencia de 7
+              niveles. Asimismo, las políticas de seguridad (frontera de secretos y aprobación atada
+              a hash) no admiten excepciones.
             </p>
           </div>
         </div>
@@ -110,12 +101,12 @@ export const HierarchyAndSecurityView: React.FC = () => {
                     src.level === 1
                       ? 'bg-amber-950 text-amber-300 border border-amber-800'
                       : src.level === 2
-                      ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
-                      : src.level === 4
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                      : src.level === 7
-                      ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                      : 'bg-slate-900 text-slate-300 border border-slate-700'
+                        ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+                        : src.level === 4
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : src.level === 7
+                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                            : 'bg-slate-900 text-slate-300 border border-slate-700'
                   }`}
                 >
                   N{src.level}
@@ -149,14 +140,18 @@ export const HierarchyAndSecurityView: React.FC = () => {
                 Simulador de Arbitraje de Conflictos
               </h3>
               <p className="text-xs text-slate-400">
-                Selecciona dos fuentes en disputa para conocer cuál manda por derecho arquitectónico.
+                Selecciona dos fuentes en disputa para conocer cuál manda por derecho
+                arquitectónico.
               </p>
             </div>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="text-slate-400 font-mono block mb-1">Afirmación / Fuente A:</label>
+                <label htmlFor="source-a" className="text-slate-400 font-mono block mb-1">
+                  Afirmación / Fuente A:
+                </label>
                 <select
+                  id="source-a"
                   value={sourceA}
                   onChange={(e) => setSourceA(Number(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500"
@@ -170,8 +165,11 @@ export const HierarchyAndSecurityView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-400 font-mono block mb-1">Afirmación / Fuente B:</label>
+                <label htmlFor="source-b" className="text-slate-400 font-mono block mb-1">
+                  Afirmación / Fuente B:
+                </label>
                 <select
+                  id="source-b"
                   value={sourceB}
                   onChange={(e) => setSourceB(Number(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500"
@@ -192,17 +190,22 @@ export const HierarchyAndSecurityView: React.FC = () => {
               </span>
               {sourceA === sourceB ? (
                 <div className="text-amber-400 text-xs font-mono">
-                  Ambas fuentes pertenecen al mismo nivel ({sourceA}). Se requiere desambiguación interna.
+                  Ambas fuentes pertenecen al mismo nivel ({sourceA}). Se requiere desambiguación
+                  interna.
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-emerald-400 font-mono font-bold text-xs">
                     <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                    <span>PREVALECE: Nivel {winner.level} ({winner.name})</span>
+                    <span>
+                      PREVALECE: Nivel {winner.level} ({winner.name})
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-rose-400/90 font-mono text-[11px]">
                     <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>SUBORDINADO: Nivel {loser.level} ({loser.name})</span>
+                    <span>
+                      SUBORDINADO: Nivel {loser.level} ({loser.name})
+                    </span>
                   </div>
                   <p className="text-[11px] text-slate-300 pt-2 border-t border-slate-800">
                     {winner.level === 4 && loser.level === 7
@@ -233,15 +236,19 @@ export const HierarchyAndSecurityView: React.FC = () => {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
-            <em>"Aprobación ligada al hash. Modificar 1 solo carácter en el patch invalida automáticamente la aprobación anterior."</em>
+            <em>
+              "Aprobación ligada al hash. Modificar 1 solo carácter en el patch invalida
+              automáticamente la aprobación anterior."
+            </em>
             No existe aprobación retroactiva.
           </p>
 
           <div className="space-y-2">
-            <label className="text-slate-400 font-mono text-[11px] block">
+            <label htmlFor="patch-code" className="text-slate-400 font-mono text-[11px] block">
               Código del Parche (Edita cualquier carácter para comprobar):
             </label>
             <textarea
+              id="patch-code"
               rows={4}
               value={patchCode}
               onChange={(e) => setPatchCode(e.target.value)}
@@ -281,15 +288,19 @@ export const HierarchyAndSecurityView: React.FC = () => {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
-            <em>"Ningún contenido del proyecto llega a un LLM sin sanitización. Ningún secreto llega a exportación ni a logs."</em>
+            <em>
+              "Ningún contenido del proyecto llega a un LLM sin sanitización. Ningún secreto llega a
+              exportación ni a logs."
+            </em>
             originalContent queda suprimido del dominio.
           </p>
 
           <div className="space-y-2">
-            <label className="text-slate-400 font-mono text-[11px] block">
+            <label htmlFor="raw-prompt" className="text-slate-400 font-mono text-[11px] block">
               Contenido de Entrada (Prueba agregando tokens o passwords):
             </label>
             <textarea
+              id="raw-prompt"
               rows={3}
               value={rawPrompt}
               onChange={(e) => setRawPrompt(e.target.value)}

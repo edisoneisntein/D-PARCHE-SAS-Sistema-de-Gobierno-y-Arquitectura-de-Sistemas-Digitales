@@ -4,25 +4,22 @@
  */
 
 import React, { useState } from 'react';
-import { MACRO_CYCLE_PHASES } from '../data/hermesMasterData';
-import { MacroCyclePhase } from '../types/hermes';
+import { MACRO_CYCLE_PHASES } from '../data';
+import { MacroCyclePhase } from '../types';
 import {
-  Layers,
-  ArrowRight,
   ShieldCheck,
   FileText,
-  Search,
+  Search as _Search,
   CheckCircle,
-  HelpCircle,
   Lock,
   Workflow,
-  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 export const MasterCycleView: React.FC = () => {
   const [selectedPhaseId, setSelectedPhaseId] = useState<number>(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [_searchTerm, _setSearchTerm] = useState('');
 
   const categories = [
     { id: 'all', label: 'Todas las Fases (26)' },
@@ -34,18 +31,16 @@ export const MasterCycleView: React.FC = () => {
   ];
 
   const filteredPhases = MACRO_CYCLE_PHASES.filter((phase) => {
-    const matchesCategory =
-      selectedCategory === 'all' || phase.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || phase.category === selectedCategory;
     const matchesSearch =
-      phase.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      phase.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      phase.id.toString() === searchTerm;
+      phase.name.toLowerCase().includes(_searchTerm.toLowerCase()) ||
+      phase.description.toLowerCase().includes(_searchTerm.toLowerCase()) ||
+      phase.id.toString() === _searchTerm;
     return matchesCategory && matchesSearch;
   });
 
   const activePhase =
-    MACRO_CYCLE_PHASES.find((p) => p.id === selectedPhaseId) ||
-    MACRO_CYCLE_PHASES[0];
+    MACRO_CYCLE_PHASES.find((p) => p.id === selectedPhaseId) || MACRO_CYCLE_PHASES[0];
 
   const getCategoryBadge = (cat: MacroCyclePhase['category']) => {
     switch (cat) {
@@ -77,9 +72,10 @@ export const MasterCycleView: React.FC = () => {
               Ciclo Maestro de Ingeniería: 26 Fases Formales
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              Desde la <strong>Intención</strong> inicial hasta la <strong>Evolución</strong> continua.
-              Hermes determina cuáles fases aplican a cada sistema y deja evidencia verificable en cada transición.
-              No se avanza a la siguiente fase sin cumplir los criterios de salida e invariantes.
+              Desde la <strong>Intención</strong> inicial hasta la <strong>Evolución</strong>{' '}
+              continua. Hermes determina cuáles fases aplican a cada sistema y deja evidencia
+              verificable en cada transición. No se avanza a la siguiente fase sin cumplir los
+              criterios de salida e invariantes.
             </p>
           </div>
         </div>
@@ -120,14 +116,15 @@ export const MasterCycleView: React.FC = () => {
             {filteredPhases.map((phase) => {
               const isSelected = selectedPhaseId === phase.id;
               return (
-                <div
+                <button
                   key={phase.id}
                   onClick={() => setSelectedPhaseId(phase.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all duration-150 flex items-center justify-between gap-3 ${
+                  className={`p-3 rounded-lg border cursor-pointer transition-all duration-150 flex items-center justify-between gap-3 w-full text-left ${
                     isSelected
                       ? 'bg-indigo-950/70 border-indigo-500 shadow-md shadow-indigo-950/30'
                       : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/40'
                   }`}
+                  aria-pressed={isSelected}
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-md bg-slate-900 border border-slate-700 font-mono font-bold text-xs text-indigo-400 flex items-center justify-center flex-shrink-0">
@@ -157,7 +154,7 @@ export const MasterCycleView: React.FC = () => {
                       }`}
                     />
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -169,22 +166,22 @@ export const MasterCycleView: React.FC = () => {
             <div className="flex items-center justify-between gap-2 mb-2">
               <span
                 className={`px-2 py-0.5 rounded text-[11px] font-mono border ${getCategoryBadge(
-                  activePhase.category
+                  activePhase?.category ?? 'discovery'
                 )}`}
               >
-                FASE {activePhase.id} DE 26
+                FASE {activePhase?.id ?? 1} DE 26
               </span>
               <span className="text-xs font-mono text-slate-500 uppercase">
-                {activePhase.category}
+                {activePhase?.category ?? 'discovery'}
               </span>
             </div>
 
             <h3 className="text-lg font-bold text-white mb-2">
-              {activePhase.id}. {activePhase.name}
+              {activePhase?.id ?? 1}. {activePhase?.name ?? ''}
             </h3>
 
             <p className="text-xs text-slate-300 leading-relaxed mb-4 bg-slate-950 p-3 rounded-lg border border-slate-800">
-              {activePhase.description}
+              {activePhase?.description ?? ''}
             </p>
 
             <div className="space-y-3.5 text-xs">
@@ -194,7 +191,7 @@ export const MasterCycleView: React.FC = () => {
                   <FileText className="w-3.5 h-3.5" /> Entradas Requeridas
                 </h4>
                 <ul className="space-y-1">
-                  {activePhase.requiredInputs.map((input, idx) => (
+                  {activePhase?.requiredInputs.map((input, idx) => (
                     <li
                       key={idx}
                       className="bg-slate-950 p-2 rounded border border-slate-800 text-slate-300 flex items-start gap-1.5"
@@ -212,7 +209,7 @@ export const MasterCycleView: React.FC = () => {
                   <CheckCircle className="w-3.5 h-3.5" /> Salidas Entregables
                 </h4>
                 <ul className="space-y-1">
-                  {activePhase.expectedOutputs.map((out, idx) => (
+                  {activePhase?.expectedOutputs.map((out, idx) => (
                     <li
                       key={idx}
                       className="bg-slate-950 p-2 rounded border border-slate-800 text-slate-300 flex items-start gap-1.5"
@@ -230,7 +227,7 @@ export const MasterCycleView: React.FC = () => {
                   <Lock className="w-3.5 h-3.5" /> Puertas de Gobierno (Gates)
                 </h4>
                 <ul className="space-y-1">
-                  {activePhase.governanceGates.map((gate, idx) => (
+                  {activePhase?.governanceGates.map((gate, idx) => (
                     <li
                       key={idx}
                       className="bg-slate-950 p-2 rounded border border-slate-800 text-slate-300 flex items-start gap-1.5"
@@ -248,7 +245,7 @@ export const MasterCycleView: React.FC = () => {
                   <ShieldCheck className="w-3.5 h-3.5" /> Evidencia Verificable Requerida
                 </h4>
                 <ul className="space-y-1">
-                  {activePhase.evidenceRequired.map((ev, idx) => (
+                  {activePhase?.evidenceRequired.map((ev, idx) => (
                     <li
                       key={idx}
                       className="bg-slate-950 p-2 rounded border border-slate-800 text-slate-300 flex items-start gap-1.5"

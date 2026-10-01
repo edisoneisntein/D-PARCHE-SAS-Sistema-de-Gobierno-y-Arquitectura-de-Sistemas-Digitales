@@ -7,12 +7,93 @@ import 'dotenv/config';
 import { GoogleGenAI } from '@google/genai';
 import express, { Request, Response } from 'express';
 import path from 'path';
-import crypto from 'crypto';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import pino from 'pino';
+import { z } from 'zod';
+import { sanitizeText, computeSha256Sync } from './src/utils/sanitizer';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-app.use(express.json({ limit: '15mb' }));
+// Structured logger
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+});
+
+// Security headers via Helmet
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // React needs unsafe-inline for dev
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https://generativelanguage.googleapis.com'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Required for Vite HMR
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    noSniff: true,
+    xssFilter: true,
+    frameguard: { action: 'deny' },
+  })
+);
+
+// Compression
+app.use(compression());
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute per IP
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    logger.warn({ ip: res.req.ip }, 'Rate limit exceeded');
+    res.status(429).json({ error: 'Too many requests, please try again later.' });
+  },
+});
+app.use('/api/', apiLimiter);
+
+// Body parsing with strict limits
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Request logging
+app.use((req, _res, next) => {
+  const start = Date.now();
+  _res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info(
+      {
+        method: req.method,
+        url: req.url,
+        status: _res.statusCode,
+        duration,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+      },
+      'HTTP Request'
+    );
+  });
+  next();
+});
 
 // Lazy Google GenAI Client
 let genAIClient: GoogleGenAI | null = null;
@@ -25,30 +106,6 @@ function getGenAI(): GoogleGenAI {
     genAIClient = new GoogleGenAI({ apiKey });
   }
   return genAIClient;
-}
-
-// Invariant Secret Boundary Sanitizer (Sección 21)
-function sanitizeText(text: string): { sanitized: string; redactedCount: number } {
-  let count = 0;
-  let result = text;
-
-  // Mask common API keys and tokens
-  const patterns = [
-    /sk-[a-zA-Z0-9_-]{20,}/g, // OpenAI/Anthropic keys
-    /AIza[0-9A-Za-z-_]{35}/g, // Google API keys
-    /ghp_[a-zA-Z0-9]{36}/g, // GitHub personal access tokens
-    /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g, // Private keys
-    /bearer\s+[a-zA-Z0-9_\-\.]{20,}/gi, // Bearer tokens
-  ];
-
-  for (const regex of patterns) {
-    result = result.replace(regex, (match) => {
-      count++;
-      return `[REDACTED_SECRET_HASH_${crypto.createHash('sha256').update(match).digest('hex').substring(0, 8)}]`;
-    });
-  }
-
-  return { sanitized: result, redactedCount: count };
 }
 
 const HERMES_CORE_SYSTEM_PROMPT = `
@@ -91,25 +148,62 @@ ESTRUCTURA DE TUS RESPUESTAS:
 4. Próximos pasos en el Ciclo Maestro de 26 Fases.
 `;
 
+// Zod schemas for request validation
+const AttachmentSchema = z.object({
+  name: z.string().min(1).max(255),
+  content: z.string().max(10 * 1024 * 1024), // 10MB max per attachment
+});
+
+const ChatRequestSchema = z.object({
+  message: z.string().max(50000).optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'model']),
+        content: z.string(),
+      })
+    )
+    .max(8)
+    .optional()
+    .default([]),
+  attachments: z.array(AttachmentSchema).max(5).optional().default([]),
+});
+
+interface SanitizedAttachment {
+  name: string;
+  content: string;
+  hash: string;
+  redactedCount: number;
+}
+
 // Hermes Chat Stream Endpoint
 app.post('/api/hermes/chat', async (req: Request, res: Response) => {
-  try {
-    const { message, history = [], attachments = [] } = req.body;
+  const startTime = Date.now();
 
-    if (!message && (!attachments || attachments.length === 0)) {
+  try {
+    // Validate request body
+    const validation = ChatRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      logger.warn({ errors: validation.error.flatten() }, 'Invalid chat request');
+      res.status(400).json({ error: 'Invalid request body', details: validation.error.flatten() });
+      return;
+    }
+
+    const { message, history = [], attachments = [] } = validation.data;
+
+    if (!message && attachments.length === 0) {
       res.status(400).json({ error: 'Se requiere un mensaje o al menos un archivo adjunto.' });
       return;
     }
 
-    // 1. Secret Boundary Sanitization
+    // 1. Secret Boundary Sanitization (shared sanitizer)
     let totalRedacted = 0;
     const sanitizedUserMessage = sanitizeText(message || '');
     totalRedacted += sanitizedUserMessage.redactedCount;
 
-    const sanitizedAttachments = (attachments as { name: string; content: string }[]).map((att) => {
+    const sanitizedAttachments: SanitizedAttachment[] = attachments.map((att) => {
       const san = sanitizeText(att.content);
-      totalRedacted += san.redactedCount;
-      const hash = crypto.createHash('sha256').update(att.content).digest('hex');
+      const hash = computeSha256Sync(att.content);
       return {
         name: att.name,
         content: san.sanitized,
@@ -118,10 +212,13 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
       };
     });
 
+    totalRedacted += sanitizedAttachments.reduce((sum, a) => sum + a.redactedCount, 0);
+
     // 2. Prepare context with SHA-256 hashes
     let userPromptWithContext = sanitizedUserMessage.sanitized;
     if (sanitizedAttachments.length > 0) {
-      userPromptWithContext += '\n\n=== ARTEFACTOS / DOCUMENTOS ADJUNTOS (SANITISADOS POR HERMES GATE) ===\n';
+      userPromptWithContext +=
+        '\n\n=== ARTEFACTOS / DOCUMENTOS ADJUNTOS (SANITISADOS POR HERMES GATE) ===\n';
       sanitizedAttachments.forEach((att, index) => {
         userPromptWithContext += `\n--- ARTEFACTO [${index + 1}]: ${att.name} (SHA-256: ${att.hash}) ---\n${att.content}\n--- FIN ARTEFACTO ---\n`;
       });
@@ -131,6 +228,7 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
     // Send metadata header event
     res.write(
@@ -164,7 +262,7 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
 
     const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
     let streamSucceeded = false;
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const modelName of modelsToTry) {
       try {
@@ -185,9 +283,10 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
 
         streamSucceeded = true;
         break;
-      } catch (err: any) {
-        console.warn(`Model ${modelName} failed in /api/hermes/chat:`, err.message);
-        lastError = err;
+      } catch (err) {
+        const error = err as Error;
+        logger.warn({ model: modelName, error: error.message }, 'Model failed in /api/hermes/chat');
+        lastError = error;
       }
     }
 
@@ -197,15 +296,31 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
 
     res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
     res.end();
-  } catch (error: any) {
-    console.error('Error in /api/hermes/chat:', error);
+
+    logger.info(
+      {
+        duration: Date.now() - startTime,
+        modelUsed: modelsToTry[0],
+        totalRedacted,
+        attachmentsCount: attachments.length,
+      },
+      'Chat request completed'
+    );
+  } catch (error) {
+    const err = error as Error;
+    logger.error({ err, duration: Date.now() - startTime }, 'Error in /api/hermes/chat');
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message || 'Error en Hermes Core Ingestion' });
+      res.status(500).json({ error: err.message || 'Error en Hermes Core Ingestion' });
     } else {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
       res.end();
     }
   }
+});
+
+// Health check endpoint
+app.get('/healthz', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Vite Middleware for development
@@ -228,9 +343,26 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, () => {
-    console.log(`Hermes Server running on port ${PORT}`);
+  const server = app.listen(PORT, () => {
+    logger.info({ port: PORT, env: NODE_ENV }, `Hermes Server running on port ${PORT}`);
   });
+
+  // Graceful shutdown
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, 'Shutting down gracefully');
+    server.close(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    });
+    // Force close after 10s
+    setTimeout(() => {
+      logger.error('Forced shutdown');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 startServer();

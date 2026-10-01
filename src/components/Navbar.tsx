@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ShieldAlert,
   Terminal,
@@ -26,12 +27,70 @@ export type ActiveTab =
   | 'critic'
   | 'hierarchy';
 
-interface NavbarProps {
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
+interface TabConfig {
+  path: string;
+  label: ActiveTab;
+  icon: React.ReactNode;
+  title: string;
+  className?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+const TABS: TabConfig[] = [
+  {
+    path: '/chat',
+    label: 'chat',
+    icon: <Terminal className="w-3.5 h-3.5 text-indigo-400" />,
+    title: 'Chat Hermes Core ⚡',
+  },
+  {
+    path: '/document',
+    label: 'document',
+    icon: <BookOpen className="w-3.5 h-3.5" />,
+    title: 'Documento Maestro',
+  },
+  {
+    path: '/epistemology',
+    label: 'epistemology',
+    icon: <Award className="w-3.5 h-3.5" />,
+    title: 'Epistemología & 125 Caps',
+  },
+  {
+    path: '/decision',
+    label: 'decision',
+    icon: <Cpu className="w-3.5 h-3.5" />,
+    title: '¿Usar Agente?',
+  },
+  {
+    path: '/cycle',
+    label: 'cycle',
+    icon: <Layers className="w-3.5 h-3.5" />,
+    title: 'Ciclo (26 Fases)',
+  },
+  {
+    path: '/readiness',
+    label: 'readiness',
+    icon: <Activity className="w-3.5 h-3.5" />,
+    title: '245 Tests & Fases',
+  },
+  {
+    path: '/critic',
+    label: 'critic',
+    icon: <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />,
+    title: 'Mentor Crítico',
+    className: 'text-rose-300 hover:text-rose-100 hover:bg-rose-950/40 border border-rose-900/50',
+  },
+  {
+    path: '/hierarchy',
+    label: 'hierarchy',
+    icon: <Lock className="w-3.5 h-3.5" />,
+    title: 'Jerarquía & Reglas',
+  },
+];
+
+export const Navbar: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <header className="bg-slate-950 text-slate-100 border-b border-slate-800 sticky top-0 z-50 shadow-md">
       {/* Top Bar with System Status & Badges */}
@@ -76,7 +135,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
-              HERMES <span className="text-indigo-400 font-normal text-xs uppercase tracking-widest px-1.5 py-0.5 rounded bg-indigo-950/80 border border-indigo-800">Agent V1.0</span>
+              HERMES{' '}
+              <span className="text-indigo-400 font-normal text-xs uppercase tracking-widest px-1.5 py-0.5 rounded bg-indigo-950/80 border border-indigo-800">
+                Agent V1.0
+              </span>
             </h1>
             <p className="text-xs text-slate-400">
               Sistema de Ingeniería, Gobierno y Operación de Sistemas Digitales Complejos
@@ -86,101 +148,24 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         {/* Tab Buttons */}
         <nav className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none text-xs font-medium">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors font-bold ${
-              activeTab === 'chat'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-indigo-300 hover:text-white hover:bg-slate-900 border border-indigo-800/60 bg-indigo-950/40'
-            }`}
-          >
-            <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            Chat Hermes Core ⚡
-          </button>
-
-          <button
-            onClick={() => setActiveTab('document')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'document'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            Documento Maestro
-          </button>
-
-          <button
-            onClick={() => setActiveTab('epistemology')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'epistemology'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Award className="w-3.5 h-3.5" />
-            Epistemología & 125 Caps
-          </button>
-
-          <button
-            onClick={() => setActiveTab('decision')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'decision'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            ¿Usar Agente?
-          </button>
-
-          <button
-            onClick={() => setActiveTab('cycle')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'cycle'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            Ciclo (26 Fases)
-          </button>
-
-          <button
-            onClick={() => setActiveTab('readiness')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'readiness'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" />
-            245 Tests & Fases
-          </button>
-
-          <button
-            onClick={() => setActiveTab('critic')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'critic'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-rose-300 hover:text-rose-100 hover:bg-rose-950/40 border border-rose-900/50'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-            Mentor Crítico
-          </button>
-
-          <button
-            onClick={() => setActiveTab('hierarchy')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'hierarchy'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            Jerarquía & Reglas
-          </button>
+          {TABS.map((tab) => (
+            <button
+              key={tab.path}
+              onClick={() => navigate(tab.path)}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors font-bold ${
+                location.pathname === tab.path
+                  ? tab.className
+                    ? `bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md ${tab.className}`
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                  : tab.className
+                    ? 'text-rose-300 hover:text-rose-100 hover:bg-rose-950/40 border border-rose-900/50'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              {tab.icon}
+              {tab.title}
+            </button>
+          ))}
         </nav>
       </div>
     </header>

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export type { DecisionParameters } from '../types/hermes';
 import {
   DecisionParameters,
   DecisionResult,
@@ -125,11 +126,16 @@ export function evaluateArchitectureDecision(params: DecisionParameters): Decisi
     recommendedComponents,
     tradeoffs: {
       determinism: determinismRequired >= 7 ? 'Crítico (100% exigido)' : 'Heurístico admisible',
-      cost: costBudgetSensitivity >= 7 ? 'Bajo presupuesto (minimizar tokens)' : 'Tolerante a inferencia',
+      cost:
+        costBudgetSensitivity >= 7
+          ? 'Bajo presupuesto (minimizar tokens)'
+          : 'Tolerante a inferencia',
       latency: latencySensitivity >= 7 ? 'Baja latencia requerida (<200ms)' : 'Asíncrono tolerable',
       verifiability: 'Requiere evidencia tangible y repetible (Sección 12)',
-      safetyRisk: isHighRisk ? 'Alto impacto destructivo: Sandbox obligatorio' : 'Bajo impacto colateral'
-    }
+      safetyRisk: isHighRisk
+        ? 'Alto impacto destructivo: Sandbox obligatorio'
+        : 'Bajo impacto colateral',
+    },
   };
 }
 
@@ -141,18 +147,29 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
   const requiredRemediations: string[] = [];
   const unforgivingAnalysis: string[] = [];
 
-  let verdict: 'RECHAZADO' | 'CORRECCION_OBLIGATORIA' | 'APROBADO_CON_CONDICIONES' = 'APROBADO_CON_CONDICIONES';
+  let verdict: 'RECHAZADO' | 'CORRECCION_OBLIGATORIA' | 'APROBADO_CON_CONDICIONES' =
+    'APROBADO_CON_CONDICIONES';
   let score = 85;
 
   // Check 1: Agent direct DB access / bypass gates
   if (
-    (pLower.includes('directa') || pLower.includes('directo') || pLower.includes('sin pasar') || pLower.includes('autónomo')) &&
-    (pLower.includes('base de datos') || pLower.includes('db') || pLower.includes('sql') || pLower.includes('mutación'))
+    (pLower.includes('directa') ||
+      pLower.includes('directo') ||
+      pLower.includes('sin pasar') ||
+      pLower.includes('autónomo')) &&
+    (pLower.includes('base de datos') ||
+      pLower.includes('db') ||
+      pLower.includes('sql') ||
+      pLower.includes('mutación'))
   ) {
     verdict = 'RECHAZADO';
     score = 15;
-    detectedAntiPatterns.push('Acceso directo de agente de IA a base de datos mutacional sin Execution Gate.');
-    priorityViolations.push('Violación P0 de Seguridad (Sección 10, 15, 21): Hermes Core debe gobernar toda mutación.');
+    detectedAntiPatterns.push(
+      'Acceso directo de agente de IA a base de datos mutacional sin Execution Gate.'
+    );
+    priorityViolations.push(
+      'Violación P0 de Seguridad (Sección 10, 15, 21): Hermes Core debe gobernar toda mutación.'
+    );
     unforgivingAnalysis.push(
       'Un LLM es un componente estocástico y probabilístico. Darle credenciales de escritura directa en bases de datos es un fallo arquitectónico severo (vulnerabilidad de inyección indirecta de prompt, borrado accidental o corrupción de integridad referencial).',
       'En Hermes, los agentes proponen cambios estructurados; Hermes Core evalúa la política, verifica esquemas, sanitiza y ejecuta bajo una transacción atómica.'
@@ -166,13 +183,23 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
 
   // Check 2: Multi-agent hype for trivial problems
   if (
-    (pLower.includes('7 agentes') || pLower.includes('5 agentes') || pLower.includes('múltiples agentes') || pLower.includes('en bucle')) &&
-    (pLower.includes('calculadora') || pLower.includes('simple') || pLower.includes('infinitas') || pLower.includes('consenso'))
+    (pLower.includes('7 agentes') ||
+      pLower.includes('5 agentes') ||
+      pLower.includes('múltiples agentes') ||
+      pLower.includes('en bucle')) &&
+    (pLower.includes('calculadora') ||
+      pLower.includes('simple') ||
+      pLower.includes('infinitas') ||
+      pLower.includes('consenso'))
   ) {
     verdict = 'RECHAZADO';
     score = 25;
-    detectedAntiPatterns.push('Hiper-agentificación injustificada (Over-agentification) y bucles no convergentes.');
-    priorityViolations.push('Violación de Arquitectura y Utilidad (Sección 7): "Hermes debe poder decidir NO USAR AGENTES".');
+    detectedAntiPatterns.push(
+      'Hiper-agentificación injustificada (Over-agentification) y bucles no convergentes.'
+    );
+    priorityViolations.push(
+      'Violación de Arquitectura y Utilidad (Sección 7): "Hermes debe poder decidir NO USAR AGENTES".'
+    );
     unforgivingAnalysis.push(
       'Proponer una constelación de agentes comunicándose en bucles para resolver tareas estructuradas es una fantasía de complejidad innecesaria. Multiplica el coste de tokens por 10x o 50x, introduce latencia intolerable y produce alucinaciones cruzadas.',
       'Una calculadora de impuestos o un cálculo aritmético exige software determinista en código estándar, no agentes charlando entre sí.'
@@ -185,13 +212,24 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
 
   // Check 3: Claiming 2000 skills / manifest = reality
   if (
-    (pLower.includes('2.000') || pLower.includes('2000') || pLower.includes('1.900') || pLower.includes('1900') || pLower.includes('manifest')) &&
-    (pLower.includes('listas') || pLower.includes('dispone') || pLower.includes('promocionar') || pLower.includes('afirmar'))
+    (pLower.includes('2.000') ||
+      pLower.includes('2000') ||
+      pLower.includes('1.900') ||
+      pLower.includes('1900') ||
+      pLower.includes('manifest')) &&
+    (pLower.includes('listas') ||
+      pLower.includes('dispone') ||
+      pLower.includes('promocionar') ||
+      pLower.includes('afirmar'))
   ) {
     verdict = 'RECHAZADO';
     score = 10;
-    detectedAntiPatterns.push('Falacia Epistemológica: Confundir entradas de manifest con capacidades listas para producción.');
-    priorityViolations.push('Violación flagrante de la Sección 12, 14 y 30: "1900+ = CLAIM_UNVERIFIED". Regla absoluta sobre el estado.');
+    detectedAntiPatterns.push(
+      'Falacia Epistemológica: Confundir entradas de manifest con capacidades listas para producción.'
+    );
+    priorityViolations.push(
+      'Violación flagrante de la Sección 12, 14 y 30: "1900+ = CLAIM_UNVERIFIED". Regla absoluta sobre el estado.'
+    );
     unforgivingAnalysis.push(
       'La auditoría forense demostró un universo local de 125 capacidades, de las cuales solo 43 están instaladas y únicamente 25 están verificadas mediante SKILL.md.',
       'Declarar que 1.900 o 2.000 capacidades están "listas para producción" es una falsedad sin evidencia verificable. Destruye la credibilidad del sistema y viola el principio epistemológico fundacional de Hermes.'
@@ -203,26 +241,43 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
   }
 
   // Check 4: General hygiene checks
-  if (pLower.includes('sin sandbox') || (pLower.includes('ejecutar') && pLower.includes('shell') && !pLower.includes('sandbox'))) {
+  if (
+    pLower.includes('sin sandbox') ||
+    (pLower.includes('ejecutar') && pLower.includes('shell') && !pLower.includes('sandbox'))
+  ) {
     if (verdict !== 'RECHAZADO') verdict = 'CORRECCION_OBLIGATORIA';
     score = Math.min(score, 40);
-    detectedAntiPatterns.push('Ejecución de efectos secundarios en host sin contenedor de aislamiento (Sandbox).');
-    priorityViolations.push('Violación de Seguridad (Sección 15): "El sandbox es una frontera de seguridad innegociable".');
+    detectedAntiPatterns.push(
+      'Ejecución de efectos secundarios en host sin contenedor de aislamiento (Sandbox).'
+    );
+    priorityViolations.push(
+      'Violación de Seguridad (Sección 15): "El sandbox es una frontera de seguridad innegociable".'
+    );
     unforgivingAnalysis.push(
       'Cualquier comando shell, acceso a red o escritura a filesystem que se ejecute fuera de un sandbox expone el host del sistema a corrupción de archivos o exfiltración de credenciales.'
     );
-    requiredRemediations.push('Implementar gVisor/Docker/WASM isolation gate antes de ejecutar la acción.');
+    requiredRemediations.push(
+      'Implementar gVisor/Docker/WASM isolation gate antes de ejecutar la acción.'
+    );
   }
 
-  if (pLower.includes('llm decide') || pLower.includes('llm apruebe') || pLower.includes('llm como autoridad')) {
+  if (
+    pLower.includes('llm decide') ||
+    pLower.includes('llm apruebe') ||
+    pLower.includes('llm como autoridad')
+  ) {
     if (verdict !== 'RECHAZADO') verdict = 'CORRECCION_OBLIGATORIA';
     score = Math.min(score, 35);
     detectedAntiPatterns.push('Transferencia de autoridad soberana a un modelo de lenguaje.');
-    priorityViolations.push('Violación de Autoridad (Sección 10): "Hermes Core conserva la autoridad; los modelos son subordinados".');
+    priorityViolations.push(
+      'Violación de Autoridad (Sección 10): "Hermes Core conserva la autoridad; los modelos son subordinados".'
+    );
     unforgivingAnalysis.push(
       'Un LLM puede proponer o clasificar, pero NUNCA puede ser la autoridad final de aprobación de estado o de políticas.'
     );
-    requiredRemediations.push('El aprobador debe ser Hermes Core determinista o el operador humano con firma de hash.');
+    requiredRemediations.push(
+      'El aprobador debe ser Hermes Core determinista o el operador humano con firma de hash.'
+    );
   }
 
   // Clean / well-architected case
@@ -244,8 +299,8 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
     verdict === 'RECHAZADO'
       ? 'PROPUESTA RECHAZADA: Viola invariantes críticas de seguridad, epistemología o arquitectura de Hermes.'
       : verdict === 'CORRECCION_OBLIGATORIA'
-      ? 'CORRECCIÓN TÉCNICA OBLIGATORIA: Contiene suposiciones de riesgo o falta de contención que deben remediarse antes de proceder.'
-      : 'PROPUESTA TÉCNICAMENTE SÓLIDA: Alineada con los principios del Documento Maestro V1.';
+        ? 'CORRECCIÓN TÉCNICA OBLIGATORIA: Contiene suposiciones de riesgo o falta de contención que deben remediarse antes de proceder.'
+        : 'PROPUESTA TÉCNICAMENTE SÓLIDA: Alineada con los principios del Documento Maestro V1.';
 
   return {
     verdict,
@@ -255,6 +310,6 @@ export function critiqueArchitectureProposal(proposal: string): CritiqueResult {
     detectedAntiPatterns,
     priorityViolations,
     requiredRemediations,
-    sourceReference: 'Documento Maestro de Continuidad V1.0 (Secciones 1, 7, 10, 12, 15, 21)'
+    sourceReference: 'Documento Maestro de Continuidad V1.0 (Secciones 1, 7, 10, 12, 15, 21)',
   };
 }

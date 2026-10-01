@@ -4,23 +4,14 @@
  */
 
 import React from 'react';
-import { TEST_PHASES_DATA } from '../data/hermesMasterData';
-import {
-  Activity,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ShieldAlert,
-  FileCode2,
-  Terminal,
-  Cpu,
-  Layers,
-  Sparkles,
-} from 'lucide-react';
+import { TEST_PHASES_DATA } from '../data';
+import { CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 
 export const PhasesReadinessView: React.FC = () => {
   const completedPhases = TEST_PHASES_DATA.filter((p) => p.status === 'COMPLETED_PASSED');
-  const roadmapPhases = TEST_PHASES_DATA.filter((p) => p.status === 'ROADMAP' || p.status === 'IN_DEVELOPMENT');
+  const roadmapPhases = TEST_PHASES_DATA.filter(
+    (p) => p.status === 'ROADMAP' || p.status === 'IN_DEVELOPMENT'
+  );
 
   const totalPassedTests = completedPhases.reduce((acc, p) => acc + p.passedTests, 0);
 
@@ -39,8 +30,8 @@ export const PhasesReadinessView: React.FC = () => {
               Estado de Ingeniería: 245/245 Tests Superados & Roadmap
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              Hermes cuenta con una base de gobierno y auditoría considerablemente madura. Fases 01 a 06
-              tienen verificación rigurosa mediante suites automatizadas de pruebas.
+              Hermes cuenta con una base de gobierno y auditoría considerablemente madura. Fases 01
+              a 06 tienen verificación rigurosa mediante suites automatizadas de pruebas.
             </p>
           </div>
 
@@ -61,11 +52,17 @@ export const PhasesReadinessView: React.FC = () => {
               LIMITACIÓN CRÍTICA DEL EXECUTION ENGINE (SECCIÓN 18 DEL DOCUMENTO MAESTRO)
             </h4>
             <p className="text-rose-200/90 leading-relaxed">
-              El archivo <code className="bg-rose-950 px-1 py-0.5 rounded text-rose-300 font-mono">src/audit/execution-engine.ts</code> existe,
-              pero actualmente utiliza <strong>EJECUCIÓN SIMULADA</strong>. En estricto apego a la honestidad epistemológica,
-              <strong> NO DEBE PRESENTARSE COMO EJECUCIÓN REAL</strong>.
-              La arquitectura de Hermes exige distinguir formalmente entre <code className="font-mono text-amber-300">SIMULATED EXECUTION</code> y{' '}
-              <code className="font-mono text-emerald-300">REAL EXECUTION</code> con evidencia verificable.
+              El archivo{' '}
+              <code className="bg-rose-950 px-1 py-0.5 rounded text-rose-300 font-mono">
+                src/audit/execution-engine.ts
+              </code>{' '}
+              existe, pero actualmente utiliza <strong>EJECUCIÓN SIMULADA</strong>. En estricto
+              apego a la honestidad epistemológica,
+              <strong> NO DEBE PRESENTARSE COMO EJECUCIÓN REAL</strong>. La arquitectura de Hermes
+              exige distinguir formalmente entre{' '}
+              <code className="font-mono text-amber-300">SIMULATED EXECUTION</code> y{' '}
+              <code className="font-mono text-emerald-300">REAL EXECUTION</code> con evidencia
+              verificable.
             </p>
           </div>
         </div>

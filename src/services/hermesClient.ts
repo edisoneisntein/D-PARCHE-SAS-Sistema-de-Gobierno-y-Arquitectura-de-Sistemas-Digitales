@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Re-export shared sanitizer for client-side use
+export { sanitizeText as sanitizeClientContent, type SanitizeResult } from '../utils/sanitizer';
+export { computeSha256 } from '../utils/sanitizer';
+
+// Keep the system prompt in sync (could be moved to shared location later)
 export const HERMES_CORE_SYSTEM_PROMPT = `
 ERES HERMES CORE — SISTEMA DE INGENIERÍA, GOBIERNO Y OPERACIÓN DE SISTEMAS DIGITALES COMPLEJOS.
 Versión: 1.0 (Documento Maestro de Continuidad y Contexto).
@@ -43,50 +48,15 @@ ESTRUCTURA DE TUS RESPUESTAS:
 4. Próximos pasos en el Ciclo Maestro de 26 Fases.
 `;
 
-// In-browser client-side Secret Boundary Sanitizer (Sección 21)
-export function sanitizeClientContent(text: string): { sanitized: string; redactedCount: number } {
-  let count = 0;
-  let result = text;
-
-  const patterns = [
-    /sk-[a-zA-Z0-9_-]{20,}/g, // OpenAI/Anthropic keys
-    /AIza[0-9A-Za-z-_]{35}/g, // Google API keys
-    /ghp_[a-zA-Z0-9]{36}/g, // GitHub personal access tokens
-    /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g, // Private keys
-    /bearer\s+[a-zA-Z0-9_\-\.]{20,}/gi, // Bearer tokens
-  ];
-
-  for (const regex of patterns) {
-    result = result.replace(regex, (match) => {
-      count++;
-      return `[REDACTED_SECRET_HERMES_GATE]`;
-    });
-  }
-
-  return { sanitized: result, redactedCount: count };
-}
-
-// Compute simple SHA-256 in browser via Web Crypto API
-export async function computeSha256(text: string): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
-    return 'sha256-hash-computed';
-  }
-}
-
 export async function* streamHermesResponse(
   message: string,
   history: Array<{ role: 'user' | 'model'; content: string }>,
   attachments: Array<{ name: string; content: string }>
 ): AsyncGenerator<{ type: 'chunk' | 'meta'; text?: string; sanitizedCount?: number }> {
-  // 1. Secret Boundary Sanitization
-  const sanitizedUser = sanitizeClientContent(message);
-  let totalRedacted = sanitizedUser.redactedCount;
+  // 1. Secret Boundary Sanitization (using shared sanitizer)
+  const { sanitizeText } = await import('../utils/sanitizer');
+  const sanitizedUser = sanitizeText(message);
+  const totalRedacted = sanitizedUser.redactedCount;
 
   // 2. Client calls backend proxy endpoint with full-stack server session
   const response = await fetch('/api/hermes/chat', {

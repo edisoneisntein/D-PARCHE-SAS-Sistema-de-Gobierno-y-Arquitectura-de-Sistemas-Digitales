@@ -4,26 +4,23 @@
  */
 
 import React, { useState } from 'react';
-import { PRESET_CRITIQUE_SCENARIOS } from '../data/hermesMasterData';
-import { critiqueArchitectureProposal } from '../utils/hermesEngine';
-import { CritiqueResult } from '../types/hermes';
+import { PRESET_CRITIQUE_SCENARIOS } from '../data';
+import { critiqueArchitectureProposal } from '../utils';
+import { CritiqueResult } from '../types';
 import {
   ShieldAlert,
   Flame,
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   Sparkles,
   Send,
-  BookOpen,
-  ArrowRight,
 } from 'lucide-react';
 
 export const CriticalCounterpartView: React.FC = () => {
-  const [proposalInput, setProposalInput] = useState(PRESET_CRITIQUE_SCENARIOS[0].proposal);
+  const [proposalInput, setProposalInput] = useState(PRESET_CRITIQUE_SCENARIOS[0]?.proposal ?? '');
   const [critiqueResult, setCritiqueResult] = useState<CritiqueResult | null>(() =>
-    critiqueArchitectureProposal(PRESET_CRITIQUE_SCENARIOS[0].proposal)
+    critiqueArchitectureProposal(PRESET_CRITIQUE_SCENARIOS[0]?.proposal ?? '')
   );
 
   const handleEvaluate = (text: string) => {
@@ -31,7 +28,7 @@ export const CriticalCounterpartView: React.FC = () => {
     setCritiqueResult(res);
   };
 
-  const handleSelectPreset = (p: typeof PRESET_CRITIQUE_SCENARIOS[0]) => {
+  const handleSelectPreset = (p: (typeof PRESET_CRITIQUE_SCENARIOS)[0]) => {
     setProposalInput(p.proposal);
     handleEvaluate(p.proposal);
   };
@@ -83,14 +80,19 @@ export const CriticalCounterpartView: React.FC = () => {
               Mentor Crítico & Auditor de Ideas sin Complacencia
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              <em>"Si una idea es técnicamente mala, irrealista, innecesariamente compleja, contradictoria,
-              una falacia, un eufemismo o una fantasía, debe decirse explícitamente."</em> No se protege una
-              decisión simplemente porque ya se haya invertido trabajo en ella.
+              <em>
+                "Si una idea es técnicamente mala, irrealista, innecesariamente compleja,
+                contradictoria, una falacia, un eufemismo o una fantasía, debe decirse
+                explícitamente."
+              </em>{' '}
+              No se protege una decisión simplemente porque ya se haya invertido trabajo en ella.
             </p>
           </div>
 
           <div className="flex-shrink-0 bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs font-mono max-w-xs">
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Criterio Inmutable:</span>
+            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+              Criterio Inmutable:
+            </span>
             <span className="text-slate-200">
               Corrección → Evidencia → Seguridad → Arquitectura → Utilidad → Velocidad
             </span>
@@ -124,7 +126,8 @@ export const CriticalCounterpartView: React.FC = () => {
               Ingresa una Propuesta Técnica o Decisión a Someter a Juicio
             </h3>
             <p className="text-xs text-slate-400">
-              Describe el diseño, uso de agentes, permisos, modelo o integración. Hermes emitirá un dictamen inflexible.
+              Describe el diseño, uso de agentes, permisos, modelo o integración. Hermes emitirá un
+              dictamen inflexible.
             </p>
 
             <textarea
@@ -146,7 +149,9 @@ export const CriticalCounterpartView: React.FC = () => {
             </button>
 
             <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] text-slate-400">
-              <strong className="text-slate-300">Regla Sección 22:</strong> El auditor tiene prohibido emitir halagos vacíos o aprobar propuestas con fallas de seguridad para complacer al operador.
+              <strong className="text-slate-300">Regla Sección 22:</strong> El auditor tiene
+              prohibido emitir halagos vacíos o aprobar propuestas con fallas de seguridad para
+              complacer al operador.
             </div>
           </div>
         </div>
@@ -154,19 +159,26 @@ export const CriticalCounterpartView: React.FC = () => {
         {/* Critique Report (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
           {critiqueResult && verdictStyle && (
-            <div className={`bg-slate-900 border-2 rounded-xl p-5 shadow-xl ${verdictStyle.border}`}>
+            <div
+              className={`bg-slate-900 border-2 rounded-xl p-5 shadow-xl ${verdictStyle.border}`}
+            >
               {/* Verdict Header */}
               <div className="flex items-center justify-between gap-3 mb-3">
-                <span className={`px-2.5 py-1 rounded text-xs font-mono font-bold border flex items-center gap-1.5 ${verdictStyle.badge}`}>
+                <span
+                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold border flex items-center gap-1.5 ${verdictStyle.badge}`}
+                >
                   {verdictStyle.icon}
                   VEREDICTO: {critiqueResult.verdict}
                 </span>
                 <span className="text-xs font-mono text-slate-400">
-                  Rigor: <strong className="text-slate-200">{critiqueResult.confidenceScore}%</strong>
+                  Rigor:{' '}
+                  <strong className="text-slate-200">{critiqueResult.confidenceScore}%</strong>
                 </span>
               </div>
 
-              <h3 className={`text-base sm:text-lg font-bold tracking-tight mb-3 ${verdictStyle.text}`}>
+              <h3
+                className={`text-base sm:text-lg font-bold tracking-tight mb-3 ${verdictStyle.text}`}
+              >
                 {critiqueResult.summary}
               </h3>
 

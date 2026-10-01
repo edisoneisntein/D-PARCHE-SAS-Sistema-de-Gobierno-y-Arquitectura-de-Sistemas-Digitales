@@ -9,8 +9,6 @@ import {
   Upload,
   FileText,
   Trash2,
-  ShieldCheck,
-  ShieldAlert,
   Terminal,
   Bot,
   User,
@@ -20,19 +18,8 @@ import {
   Check,
   Loader2,
   Hash,
-  Flame,
-  ArrowRight,
 } from 'lucide-react';
-import { streamHermesResponse } from '../services/hermesClient';
-
-interface AttachedFile {
-  id: string;
-  name: string;
-  size: number;
-  content: string;
-  hash?: string;
-  redacted?: boolean;
-}
+import { useHermesStream, useFileUpload } from '../hooks';
 
 interface ChatMessage {
   id: string;
@@ -78,12 +65,25 @@ export const HermesChatView: React.FC = () => {
   ]);
 
   const [inputPrompt, setInputPrompt] = useState('');
-  const [attachments, setAttachments] = useState<AttachedFile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { attachedFiles: attachments, addFiles, removeFile: removeAttachment } = useFileUpload();
+
+  const { sendMessage, isLoading } = useHermesStream({
+    onMeta: (_sanitizedCount) => {
+      // Meta info handled in sendMessage
+    },
+    onChunk: (_text) => {
+      // Handled in sendMessage
+    },
+    onError: (err) => {
+      console.error('Hermes stream error:', err);
+    },
+    onDone: () => {
+      // Complete
+    },
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,40 +93,11 @@ export const HermesChatView: React.FC = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleFileUpload = (input: HTMLInputElement) => {
+    const files = input.files;
     if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
-      // Limit to 5MB per file
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`El archivo ${file.name} supera el límite de 5MB.`);
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setAttachments((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-            name: file.name,
-            size: file.size,
-            content,
-          },
-        ]);
-      };
-      reader.readAsText(file);
-    });
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    addFiles(files);
+    input.value = '';
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -134,9 +105,7 @@ export const HermesChatView: React.FC = () => {
     if (!prompt && attachments.length === 0) return;
     if (isLoading) return;
 
-    const currentAttachments = [...attachments];
     setInputPrompt('');
-    setAttachments([]);
 
     const userMessageId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
@@ -144,7 +113,7 @@ export const HermesChatView: React.FC = () => {
       role: 'user',
       content: prompt,
       timestamp: new Date().toLocaleTimeString(),
-      attachments: currentAttachments.map((a) => ({ name: a.name })),
+      attachments: attachments.map((a) => ({ name: a.name, hash: a.hash })),
     };
 
     const modelMessageId = `model-${Date.now()}`;
@@ -156,52 +125,15 @@ export const HermesChatView: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMessage, initialModelMessage]);
-    setIsLoading(true);
 
     try {
       const historyToPass = messages
         .filter((m) => m.id !== 'welcome-msg')
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const attachmentsToPass = currentAttachments.map((a) => ({
-        name: a.name,
-        content: a.content,
-      }));
-
-      let accumulatedText = '';
-      let metaSanitizedCount = 0;
-
-      for await (const chunk of streamHermesResponse(prompt, historyToPass, attachmentsToPass)) {
-        if (chunk.type === 'meta') {
-          metaSanitizedCount = chunk.sanitizedCount || 0;
-        } else if (chunk.type === 'chunk' && chunk.text) {
-          accumulatedText += chunk.text;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === modelMessageId
-                ? {
-                    ...msg,
-                    content: accumulatedText,
-                    sanitizedCount: metaSanitizedCount,
-                  }
-                : msg
-            )
-          );
-        }
-      }
-    } catch (error: any) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === modelMessageId
-            ? {
-                ...msg,
-                content: `⚠️ **ERROR EN HERMES CORE:** ${error.message || 'Error de procesamiento.'}`,
-              }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
+      await sendMessage(prompt, historyToPass, attachments);
+    } catch (err) {
+      console.error('Send message error:', err);
     }
   };
 
@@ -329,9 +261,7 @@ export const HermesChatView: React.FC = () => {
                 )}
 
                 {/* Message Content rendered */}
-                <div className="whitespace-pre-line font-sans space-y-2">
-                  {msg.content}
-                </div>
+                <div className="whitespace-pre-line font-sans space-y-2">{msg.content}</div>
               </div>
             </div>
           );
@@ -356,7 +286,8 @@ export const HermesChatView: React.FC = () => {
       {attachments.length > 0 && (
         <div className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-none">
           <span className="text-[11px] font-mono text-slate-400 font-semibold flex items-center gap-1">
-            <Hash className="w-3 h-3 text-indigo-400" /> Adjuntos para escaneo ({attachments.length}):
+            <Hash className="w-3 h-3 text-indigo-400" /> Adjuntos para escaneo ({attachments.length}
+            ):
           </span>
           {attachments.map((file) => (
             <div
@@ -392,8 +323,7 @@ export const HermesChatView: React.FC = () => {
           {/* File Upload Hidden Input */}
           <input
             type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
+            ref={null}
             multiple
             accept=".txt,.md,.json,.ts,.js,.tsx,.jsx,.yaml,.yml,.py,.sql,.csv"
             className="hidden"
@@ -401,7 +331,14 @@ export const HermesChatView: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.multiple = true;
+              input.accept = '.txt,.md,.json,.ts,.js,.tsx,.jsx,.yaml,.yml,.py,.sql,.csv';
+              input.onchange = () => handleFileUpload(input);
+              input.click();
+            }}
             disabled={isLoading}
             className="p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors flex-shrink-0 flex items-center gap-1.5 text-xs font-mono"
             title="Cargar archivos de código o especificaciones a Hermes"

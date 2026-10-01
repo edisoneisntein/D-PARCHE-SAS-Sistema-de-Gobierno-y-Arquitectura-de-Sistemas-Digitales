@@ -4,19 +4,16 @@
  */
 
 import React, { useState } from 'react';
-import { CAPABILITY_AUDIT_UNIVERSE } from '../data/hermesMasterData';
-import { EpistemologicalState } from '../types/hermes';
+import { CAPABILITY_AUDIT_UNIVERSE } from '../data';
+import { EpistemologicalState } from '../types';
 import {
   Award,
   AlertOctagon,
   ShieldCheck,
   Search,
   CheckCircle,
-  HelpCircle,
   Lock,
-  ArrowRight,
   Database,
-  FileCheck,
   Info,
 } from 'lucide-react';
 
@@ -89,7 +86,7 @@ export const EpistemologyMatrixView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('all');
   const [selectedCapability, setSelectedCapability] = useState<string>(
-    CAPABILITY_AUDIT_UNIVERSE[0].id
+    CAPABILITY_AUDIT_UNIVERSE[0]?.id ?? ''
   );
 
   const filteredCapabilities = CAPABILITY_AUDIT_UNIVERSE.filter((cap) => {
@@ -102,7 +99,10 @@ export const EpistemologyMatrixView: React.FC = () => {
     return matchesSearch && matchesState;
   });
 
-  const activeCapData = CAPABILITY_AUDIT_UNIVERSE.find((c) => c.id === selectedCapability) || CAPABILITY_AUDIT_UNIVERSE[0];
+  const activeCapData =
+    CAPABILITY_AUDIT_UNIVERSE.find((c) => c.id === selectedCapability) ??
+    CAPABILITY_AUDIT_UNIVERSE[0] ??
+    ({} as (typeof CAPABILITY_AUDIT_UNIVERSE)[0]);
 
   return (
     <div className="space-y-6">
@@ -119,8 +119,12 @@ export const EpistemologyMatrixView: React.FC = () => {
               Matriz de Estados Epistemológicos & Auditoría de Capacidades
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              En Hermes: <em>"Discovered ≠ Installed ≠ Available ≠ Executable ≠ Authorized ≠ Governed ≠ Verified ≠ Production_Ready"</em>.
-              Una afirmación de LLM o una entrada en un manifest no constituye evidencia técnica.
+              En Hermes:{' '}
+              <em>
+                "Discovered ≠ Installed ≠ Available ≠ Executable ≠ Authorized ≠ Governed ≠ Verified
+                ≠ Production_Ready"
+              </em>
+              . Una afirmación de LLM o una entrada en un manifest no constituye evidencia técnica.
             </p>
           </div>
 
@@ -130,7 +134,8 @@ export const EpistemologyMatrixView: React.FC = () => {
               1900+ SKILLS = CLAIM_UNVERIFIED
             </div>
             <p className="text-[11px] text-rose-200/80 leading-normal">
-              Sin prueba reproducible local, esa cifra queda clasificada como afirmación no verificada (Sección 14).
+              Sin prueba reproducible local, esa cifra queda clasificada como afirmación no
+              verificada (Sección 14).
             </p>
           </div>
         </div>
@@ -138,37 +143,49 @@ export const EpistemologyMatrixView: React.FC = () => {
         {/* Forensic Audit Metric Tiles */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Universo Descubierto</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Universo Descubierto
+            </span>
             <span className="text-xl font-bold font-mono text-indigo-400">125</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">capacidades totales</span>
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Instaladas Físicas</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Instaladas Físicas
+            </span>
             <span className="text-xl font-bold font-mono text-sky-400">43</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">13 builtin + 30 locales</span>
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Verificadas SKILL.md</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Verificadas SKILL.md
+            </span>
             <span className="text-xl font-bold font-mono text-emerald-400">25</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">con spec demostrable</span>
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Parciales / Dudas</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Parciales / Dudas
+            </span>
             <span className="text-xl font-bold font-mono text-amber-400">18</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">sin evidencia completa</span>
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Activables (Manifest)</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Activables (Manifest)
+            </span>
             <span className="text-xl font-bold font-mono text-purple-400">82</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">60 manifest + 22 opt</span>
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center">
-            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Plugins / MCP / Cron</span>
+            <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+              Plugins / MCP / Cron
+            </span>
             <span className="text-xl font-bold font-mono text-slate-200">0 / 0 / 1</span>
             <span className="text-[10px] text-slate-500 block mt-0.5">plugins / mcp / cron</span>
           </div>
@@ -295,12 +312,12 @@ export const EpistemologyMatrixView: React.FC = () => {
                             cap.epistemologicalState === 'VERIFIED'
                               ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               : cap.epistemologicalState === 'GOVERNED'
-                              ? 'bg-purple-950 text-purple-300 border border-purple-800'
-                              : cap.epistemologicalState === 'AVAILABLE'
-                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
-                              : cap.epistemologicalState === 'INSTALLED'
-                              ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                              : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                                : cap.epistemologicalState === 'AVAILABLE'
+                                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                                  : cap.epistemologicalState === 'INSTALLED'
+                                    ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                                    : 'bg-rose-950 text-rose-300 border border-rose-800'
                           }`}
                         >
                           {cap.epistemologicalState}
@@ -337,14 +354,13 @@ export const EpistemologyMatrixView: React.FC = () => {
               <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">
                 AUDITORÍA DETALLADA
               </span>
-              <span className="text-xs text-slate-500 font-mono">{activeCapData.id}</span>
+              <span className="text-xs text-slate-500 font-mono">{activeCapData?.id ?? ''}</span>
             </div>
 
-            <h3 className="text-lg font-bold text-white mb-1">
-              {activeCapData.name}
-            </h3>
+            <h3 className="text-lg font-bold text-white mb-1">{activeCapData?.name ?? ''}</h3>
             <p className="text-xs text-slate-400 mb-4">
-              Categoría: <strong className="text-slate-200 capitalize">{activeCapData.category}</strong>
+              Categoría:{' '}
+              <strong className="text-slate-200 capitalize">{activeCapData?.category ?? ''}</strong>
             </p>
 
             <div className="space-y-3 text-xs">
@@ -353,14 +369,14 @@ export const EpistemologyMatrixView: React.FC = () => {
                   Estado Epistemológico Actual
                 </span>
                 <span className="font-mono font-bold text-sm text-indigo-300">
-                  {activeCapData.epistemologicalState}
+                  {activeCapData?.epistemologicalState ?? ''}
                 </span>
                 <p className="text-slate-400 text-[11px] mt-1">
-                  {activeCapData.epistemologicalState === 'VERIFIED'
+                  {activeCapData?.epistemologicalState === 'VERIFIED'
                     ? 'Comprobado con especificación formal y pruebas funcionales.'
-                    : activeCapData.epistemologicalState === 'DISCOVERED'
-                    ? 'Solo registrado nominalmente. No se permite invocación en producción.'
-                    : 'En proceso de integración y validación formal.'}
+                    : activeCapData?.epistemologicalState === 'DISCOVERED'
+                      ? 'Solo registrado nominalmente. No se permite invocación en producción.'
+                      : 'En proceso de integración y validación formal.'}
                 </p>
               </div>
 
@@ -369,7 +385,7 @@ export const EpistemologyMatrixView: React.FC = () => {
                   Fuente Forense / Evidencia
                 </span>
                 <p className="font-mono text-emerald-400 text-[11px] break-all">
-                  {activeCapData.evidenceSource}
+                  {activeCapData?.evidenceSource ?? ''}
                 </p>
               </div>
 
@@ -378,7 +394,7 @@ export const EpistemologyMatrixView: React.FC = () => {
                   Notas de Ingeniería & Hallazgo
                 </span>
                 <p className="text-slate-300 text-[11px] leading-relaxed">
-                  {activeCapData.notes}
+                  {activeCapData?.notes ?? ''}
                 </p>
               </div>
 
@@ -387,7 +403,7 @@ export const EpistemologyMatrixView: React.FC = () => {
                   Frontera de Sandbox (Sección 15)
                 </span>
                 <div className="flex items-center gap-2 mt-1">
-                  {activeCapData.hasSandbox ? (
+                  {activeCapData?.hasSandbox ? (
                     <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[11px] font-mono flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" /> Sandbox Verificado
                     </span>
@@ -404,7 +420,8 @@ export const EpistemologyMatrixView: React.FC = () => {
           <div className="mt-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
             <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
             <span>
-              <strong>Regla Sección 16:</strong> Antes de escribir código para esta capacidad, consultar si ya está implementada y si tiene evidencia fresca.
+              <strong>Regla Sección 16:</strong> Antes de escribir código para esta capacidad,
+              consultar si ya está implementada y si tiene evidencia fresca.
             </span>
           </div>
         </div>
