@@ -15,6 +15,7 @@ export type {
   AIProviderStreamChunk,
 } from './ai-provider';
 
-export { AIProviderRegistry, validateModelName } from './ai-provider';
-
+export { AIProviderRegistry } from './ai-provider';
 export { GeminiProvider, createGeminiProviderFromEnv } from './gemini';
+export { NvidiaProvider, createNvidiaProviderFromEnv } from './nvidia';
+export { AnthropicProvider, createAnthropicProviderFromEnv } from './anthropic';
