@@ -40,6 +40,9 @@ Auditar, optimizar y elevar AGNES (generador local de video por API) a un **prod
 - RQ-F6: Moderación opt-in: flag OFF = comportamiento idéntico a hoy; flag ON = bloqueo registrado con razón.
 - RQ-F7: Exponer en la UI los parámetros ocultos de la API (ratios 21:9/4:3/3:4, 960P/2K, multi-referencia, video de referencia, modelos dinámicos, cn_bak).
 - RQ-F8: Multi-key: añadir claves multiplica throughput (1 submit/min/key hoy).
+- RQ-F9: **First/Last-frame bien generado**: el flujo ofrecerá _first frame + last frame_ para que Agnes componga bien la transición (keyframes v2.0), con previsualización y validación antes de gastar generación.
+- RQ-F10: **Multi-imagen de referencia (hasta 5)** visible en la UI — consistencia de personaje/estilo (modo `reference` de Agnes 2.5/flash).
+- RQ-F11: **Video-to-video** (`supports_ref_video`): cargar un video de referencia además de imagen — expuesto en UI y wrapper, con fallback claro si el modelo no lo soporta.
 
 ### No funcionales
 
