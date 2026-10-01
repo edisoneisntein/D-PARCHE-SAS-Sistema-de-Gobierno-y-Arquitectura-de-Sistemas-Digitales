@@ -261,7 +261,7 @@ app.post('/api/hermes/chat', requireAuth, keyLimiter, async (req: Request, res: 
     });
 
     // Verified model names (as of 2026)
-    const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const modelsToTry = ['gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-flash-latest'];
     let streamSucceeded = false;
     let lastError: unknown = null;
     let modelUsed = modelsToTry[0];

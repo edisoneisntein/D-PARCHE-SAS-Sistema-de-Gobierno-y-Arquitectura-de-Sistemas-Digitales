@@ -384,3 +384,21 @@ Implementador único: **OPENCODE**. Alcance = puntos 1-4. Increméntico; primero
 - **Sobre OPENSE (auth P0):** [AFIRMACIÓN: /api/hermes/chat sin auth → riesgo crítico.] [PROBLEMA: la auditoría lo marca P0, pero conviene no asumirlo sin verificar el código actual.] [EVIDENCIA: WORK_PLAN F1-4 listaba auth como bloqueador; su estado real debía comprobarse en server.ts.] [CORRECCIÓN: verificar siempre en código antes de aceptar un P0 declarado.] — _Del coordinador: verificado, sí carecía de auth; la evidencia de OPENSE era correcta._
 - **Sobre MiMoCode (brecha de evidencia):** [ACEPTADO: las afirmaciones ("245/245 tests", "frontera de sanitización") no coinciden con el código — solo 6 tests y hash falso sha256- de 32 bits.] [IMPACTO: falsa confianza, viola Sec. 12.] [CORRECCIÓN: gate de evidencia ejecutable en CI + etiquetar la demo como no-verificada.] — _Converge con la Decisión Final._
 - **Sobre su propia propuesta (Node):** reconoce implícitamente que dependía del supuesto "usuario reporta Node 20.17.0", sin verificación.
+
+## Validación (mesa de FIN de fase — 2026-09-30)
+
+✅ **Decisión implementada y verificada con evidencia:**
+
+- **Auth P0:** `src/middleware/auth.ts` requireAuth — 401 sin key, 403 con key inválida, 200 con key válida; auth forzosa en producción, opcional solo en dev (`REQUIRE_AUTH`). CORS por entorno + doble rate limit.
+- **Teatro eliminado:** borrado `src/data/hermesMasterData.ts` (1.071 líneas muertas); system prompt unificado en `src/config/systemPrompt.ts`; `useHashLockedPatch` saneado/etiquetado.
+- **Documentación honesta:** README real (ya no plantilla AI Studio); WORK_PLAN corregido con estados HECHO/NO HECHO verificados.
+- **Gate CI:** `typecheck` ✅ 0 errores · `npm test` ✅ 23/23 (antes 6) · `lint` ✅ 0 errores (22 warnings menores).
+- Commit del sprint: `abfd873` sobre `debate-mesa`.
+
+**Desviaciones respecto a la decisión:** ninguna material. **Riesgos que permanecen:** auth por env (correcto hasta que exista la capa de persistencia de Fase 07); afirmaciones de modelos Gemini no verificadas contra API real.
+
+**Veredicto: FASE CERRADA.**
+
+## Historial de Fases
+
+- Fase "Honestidad Verificable" — decidida y verificada (2026-09-30). Implementador: OPENCODE. Árbitro/verificador: MiMoCode. Registro completo en este archivo.
