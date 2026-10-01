@@ -1238,3 +1238,11 @@ El DIR (`docs/DIR-AGNES-WRAPPER.md` + `.sha256`) debe contener y pasar:
 
 - **UI/UX propia de primer nivel:** además del wrapper de gobierno, AGNES tendrá una **interfaz propia construida por D'Parche SAS**, orientada a flujo creativo (prompting, revisión, galería, reutilización de assets, costos visibles). No se hereda la UI de la app base: se diseña y construye como producto propio.
 - **Criterio:** la Fase 11 de implementación incluirá tanto el wrapper de gobierno (backend) como la UI/UX (frontend), con validación de usabilidad y evidencia.
+
+## Validación y Cierre de Fase 10
+
+- DIR-AGNES redactado (`docs/DIR-AGNES-WRAPPER.md`, v2) con requisitos F1-F11 + NF1-4, trazabilidad y criterios verificables.
+- Decisiones del creador incorporadas: moderación opt-in/sin bloqueos, UI/UX propia, máximo provecho de la API (first/last-frame, multi-referencia, video-to-video, 960P/2K, 21:9).
+- Rotación de cuotas: política registrada (Gemini×2 + NVIDIA×4, conmutación sin detener trabajo).
+- **Firma:** aprobación delegada por el creador para avanzar (2026-10-01 ~01:00, por descanso/Parkinson); quedará su validación final al revisar.
+- FASE 10 CERRADA. Se abre Fase 11 (implementación del wrapper sobre AGNES).
