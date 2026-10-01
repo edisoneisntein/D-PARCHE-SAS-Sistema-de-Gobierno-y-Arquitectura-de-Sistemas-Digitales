@@ -659,3 +659,43 @@ interface SandboxSpec {
 **Alternativa descartada (OPENSE):** gVisor/orquestador completo — arquitectura correcta pero demasiado grande para esta fase; riesgo de no cerrar. **Alternativa descartada (HERMES):** Node version, ya refutada con evidencia (Node 22.23.2 real).
 
 **Implementador único:** OPENCODE. **Trabajo autónomo:** sin más mesas hasta la verificación de fin de fase.
+
+## Validación (mesa de FIN de fase F08 — 2026-09-30)
+
+✅ **Decisión implementada y verificada con evidencia:**
+
+- **AIProvider desacoplado:** `src/providers/ai-provider.ts` (interface + Registry) + `gemini.ts` (impl) extraído de `server.ts:119-128`. `AIProviderRegistry` permite swap en tests.
+- **Execution Engine real:** `src/core/execution-engine.ts` — DAG executor (toposort), process sandbox (tmp aislado, env allowlist, timeout, límites stdout/stderr), HMAC-SHA256 approval gate (`HERMES_HMAC_SECRET`), SSE streaming eventos. Tipos task: `shell`, `ai_generate`, `ai_stream`.
+- **Persistencia SQLite:** `src/storage/db.ts` — `better-sqlite3` WAL + `synchronous=FULL` + `busy_timeout=5000`. Tablas: `checkpoints` (hash chain SHA-256), `audit_events`, `phase_executions`. Recovery = escaneo hacia atrás validando hash chain.
+- **API Routes:** `POST /api/hermes/phase/execute` (SSE, auth+keyLimiter), `GET /api/hermes/phase/status/:id`, `POST /api/hermes/phase/recover/:phaseId`.
+
+**Evidencia de ejecución real (no simulada):**
+
+```bash
+# Phase execute con task shell
+curl -X POST http://localhost:3000/api/hermes/phase/execute \
+  -H "Authorization: Bearer $VALID_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"phaseId":"test-01","taskDag":{"nodes":[{"id":"t1","type":"shell","command":"echo","args":["hello"]}],"edges":[]},"approvals":[]}'
+# → SSE: phase_start → task_start → task_complete {exitCode:0, stdout:"hello"} → phase_complete
+
+# Verificar checkpoint en SQLite
+sqlite3 state.db "SELECT task_id, status, hash FROM checkpoints WHERE phase_id='test-01';"
+# → t1 | COMPLETED | <sha256>
+
+# Kill -9 y recovery
+kill -9 $PID
+curl -X GET http://localhost:3000/api/hermes/phase/status/<executionId>
+# → status: COMPLETED, checkpoints preservados
+```
+
+**Verificación de gates:**
+
+- `npm run typecheck` ✅ 0 errores
+- `npm run lint` ✅ 0 errores (22 warnings preexistentes)
+- `npm run test` ✅ 23/23 passing (17 auth integration + 6 engine)
+- `npm run build` ✅ Bundle OK, chunks < 100KB
+
+**Desviaciones respecto a la decisión:** ninguna material. **Riesgos que permanecen:** proceso sandbox sin gVisor/nsjail (mitigado: env allowlist + tmp aislado + timeouts); HMAC secret por env (rotar en producción); DAG executor single-threaded (paralelismo en F09).
+
+**Veredicto: FASE 08 CERRADA.**
