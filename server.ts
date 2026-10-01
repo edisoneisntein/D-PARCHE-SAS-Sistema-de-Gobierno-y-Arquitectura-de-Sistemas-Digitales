@@ -24,6 +24,7 @@ import { HERMES_CORE_SYSTEM_PROMPT } from './src/config/systemPrompt';
 import { getExecutionEngine } from './src/core';
 import { PhaseExecutionRequest } from './src/core/execution-engine';
 import { randomUUID } from 'crypto';
+import { initializeProviders } from './src/providers/init';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -537,6 +538,9 @@ async function startServer() {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
+
+  // Initialize AI Providers from environment
+  initializeProviders();
 
   const server = app.listen(PORT, () => {
     const authConfig = getAuthConfig();

@@ -18,6 +18,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
@@ -30,6 +31,7 @@
     "helmet": "^7.1.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "openai": "^7.25.0",
     "pino": "^8.19.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
