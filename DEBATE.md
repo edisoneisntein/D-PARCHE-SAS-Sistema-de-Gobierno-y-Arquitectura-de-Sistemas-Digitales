@@ -755,3 +755,177 @@ curl -X GET http://localhost:3000/api/hermes/phase/status/<executionId>
 ## Fase Actual
 
 **Fase 10 (2026-09-30 / 2026-10-01): Conectar Frontend a Execution Engine + Completar Fase 11.** Rutas de fase ya implementadas; pendiente conectar UI (`HermesChatView`, `MasterCycleView`) a `POST /api/hermes/phase/execute` y mostrar streaming SSE en tiempo real. Implementador: OPENCODE. Verificador al cierre: MiMoCode.
+
+## Fase Actual
+
+**Fase 10 (2026-10-01): Definición formal de la INTENCIÓN y requisitos del primer sistema que D'Parche SAS gobernará/construirá.** Mesa de inicio convocada. Salida exigida: Documento de Intención y Requisitos (DIR) con hash SHA-256, matriz de trazabilidad y validación formal — NO código del sistema objetivo. Propuestas independientes primero; decisión final del enfoque la formaliza el coordinador con el usuario.
+
+## Propuesta F10 de OPENSE (Análisis Independiente)
+
+### 1) Tres Candidatos Concretos para el Primer Sistema
+
+| #     | Candidato                                                                                                         | Problema Real y Concreto                                                                                                                                                                                                                                                                                                                              |
+| ----- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | **Sistema de Gobernanza de Migraciones de Base de Datos (DB Migration Governance System)**                        | Equipos de ingeniería pierden horas/semanas en migraciones fallidas, drift de esquemas entre entornos, rollbacks manuales sin auditoría, y falta de trazabilidad entre intención de cambio y ejecución. No hay gobernanza: cualquiera puede ejecutar `migrate up` sin aprobación, sin validación de compatibilidad hacia atrás, sin rollback probado. |
+| **B** | **Sistema de Detección y Remediación de Drift de Infraestructura (Infrastructure Drift Detection & Remediation)** | Infraestructura declarada (Terraform/Pulumi) diverge del estado real en cloud (AWS/GCP/Azure) por cambios manuales, scripts ad-hoc, o emergencias. No hay detección continua, ni plan de remediación con aprobación, ni evidencia de que la remediación no rompe nada. Los equipos reaccionan a incidentes en lugar de prevenir drift.                |
+| **C** | **Sistema de Gobernanza de Rotación de Secretos y Cumplimiento (Secrets Rotation & Compliance Governance)**       | Secretos (API keys, DB passwords, certs) rotan manualmente o no rotan. No hay inventario centralizado, no hay política de rotación obligatoria, no hay evidencia de rotación completada sin downtime, no hay auditoría de acceso. Cumplimiento (SOC2, ISO27001) requiere evidencia que no existe.                                                     |
+
+---
+
+### 2) Análisis por Candidato
+
+#### **Candidato A: DB Migration Governance System**
+
+**¿Por qué ahora?**
+
+- Dolor inmediato y universal: todo equipo con BD relacional sufre migraciones.
+- Hermes ya tiene: sandbox (ejecutar migraciones aisladas), persistence (checkpoints de estado de BD), AIProvider (analizar SQL riesgoso), approval gate (HMAC para aprobar migración).
+- Sec 17 del doc maestro: Fase 06 State Machine (50/50 tests) ya modela transiciones de estado — ideal para modelar estados de migración (PENDING → APPROVED → EXECUTING → VERIFIED → COMPLETED/ROLLED_BACK).
+
+**Valor**
+
+- Elimina migraciones "a ciegas": cada migración requiere aprobación HMAC ligada a hash del SQL.
+- Rollback automático probado en sandbox antes de aprobar.
+- Trazabilidad completa: intención → SQL → aprobación → ejecución → verificación → checkpoint.
+
+**Riesgos**
+
+- Complejidad de dialetos SQL (PostgreSQL, MySQL, SQLite) — requiere parsing/validación por dialecto.
+- Transacciones DDL no transaccionales en MySQL — requiere estrategia de compensación.
+- Datos sensibles en migraciones (seeds) — requiere sanitización previa (ya tenemos sanitizer).
+
+**Tipo de solución (Sec 7): HÍBRIDA**
+
+- **Determinista (core):** Parsing SQL, validación sintáctica, execution engine transaccional, checkpointing, rollback — software tradicional con ACID.
+- **Agente (asistido):** AIProvider analiza SQL → detecta operaciones riesgosas (DROP TABLE, ALTER COLUMN type, TRUNCATE), sugiere índices, valida compatibilidad hacia atrás.
+- **Por qué no solo determinista:** Análisis semántico de SQL (¿rompe compatibilidad?) requiere razonamiento heurístico que un parser estricto no da.
+- **Por qué no multi-agente:** Un solo agente analizador con schema JSON estricto basta; no hay coordinación entre especialistas.
+- **Por qué no solo agente:** La ejecución, rollback, checkpointing, approval gate DEBEN ser deterministas (Sec 7: "si requiere determinismo matemático, dictamina NO USAR AGENTES").
+
+---
+
+#### **Candidato B: Infrastructure Drift Detection & Remediation**
+
+**¿Por qué ahora?**
+
+- Problema crítico en producción: drift causa incidentes silenciosos (security groups abiertos, IAM roles excesivos, storage sin encriptar).
+- Hermes tiene: sandbox (ejecutar `terraform plan`/`pulumi preview` aislado), AIProvider (interpretar plan output, priorizar riesgos), persistence (estado de drift + remediaciones), approval gate (HMAC para aprobar apply).
+
+**Valor**
+
+- Detección continua programada (cron) → reporte de drift clasificado por severidad.
+- Remediación generada automáticamente (terraform plan → JSON → patch) con approval gate HMAC.
+- Rollback de remediación probado en sandbox antes de aprobar.
+
+**Riesgos**
+
+- Complejidad de providers Terraform (cientos) — parsing HCL/JSON output variable.
+- Permisos cloud necesarios (leer estado real) — gestión de credenciales compleja.
+- Remediación automática puede romper dependencias implícitas — requiere validación en sandbox.
+
+**Tipo de solución (Sec 7): HÍBRIDA**
+
+- **Determinista (core):** Terraform/Pulumi execution en sandbox, state comparison, checkpointing, approval gate — software tradicional.
+- **Agente (asistido):** AIProvider clasifica drift por riesgo (CRITICAL/HIGH/MEDIUM/LOW), sugiere remediación priorizada, genera comunicación para stakeholders.
+- **Justificación Sec 7:** Execution y state management = determinista. Clasificación de riesgo y comunicación = heurística asistida por agente único.
+
+---
+
+#### **Candidato C: Secrets Rotation & Compliance Governance**
+
+**¿Por qué ahora?**
+
+- Sec 21 del doc maestro: "Secrets: Ningún contenido llega a un LLM sin sanitización... Aprobaciones criptográficas atadas a hash SHA-256." Este ES el caso de uso canónico de los principios de seguridad de Hermes.
+- Dolor regulatorio real: SOC2, ISO27001, GDPR exigen rotación periódica y evidencia.
+- Hermes tiene: sanitizer (core capability), HMAC approval (ya implementado), AIProvider (clasificar secretos, generar rotación segura), sandbox (ejecutar rotación en aislamiento).
+
+**Valor**
+
+- Inventario centralizado de secretos con metadatos (owner, rotation policy, last rotated, compliance tags).
+- Rotación automática con approval gate HMAC (hash del nuevo secreto + política).
+- Evidencia forense de rotación: checkpoint con hash del secreto anterior/nuevo, timestamp, aprobador.
+
+**Riesgos**
+
+- Integración con múltiples secret stores (Vault, AWS Secrets Manager, GCP Secret Manager, Azure Key Vault, Kubernetes Secrets) — complejidad de adaptadores.
+- Rotación sin downtime requiere coordinación con consumidores (apps, jobs) — complejidad de orquestación.
+- Falsa sensación de seguridad si rotación falla silenciosamente — requiere verificación post-rotación obligatoria.
+
+**Tipo de solución (Sec 7): HÍBRIDA**
+
+- **Determinista (core):** Lectura/escritura a secret stores, versionado, checkpointing, approval gate, verificación post-rotación — software tradicional.
+- **Agente (asistido):** AIProvider clasifica secretos por criticidad, sugiere políticas de rotación, genera comunicación de rotación, detecta patrones de acceso anómalos.
+- **Justificación Sec 7:** Operaciones criptográficas y de estado = deterministas. Clasificación y comunicación = heurística.
+
+---
+
+### 3) Recomendación Única: **Candidato A — DB Migration Governance System**
+
+**Por qué A y no B ni C:**
+
+| Criterio                                          | A (DB Migrations)                           | B (Infra Drift)                 | C (Secrets)                           |
+| ------------------------------------------------- | ------------------------------------------- | ------------------------------- | ------------------------------------- |
+| **Universalidad**                                 | ✅ Todo equipo con BD                       | ⚠️ Solo cloud-native            | ✅ Todo equipo con secretos           |
+| **Dolor inmediato medible**                       | ✅ Horas/semanas perdidas                   | ⚠️ Incidentes esporádicos       | ⚠️ Auditoría anual                    |
+| **Alineación con capacidades actuales de Hermes** | ✅ Máxima (state machine, SQL, sandbox, AI) | ⚠️ Requiere providers Terraform | ⚠️ Requiere adaptadores secret stores |
+| **Demostración de arquitectura híbrida (Sec 7)**  | ✅ Canónica: determinista + agente asistido | ✅ Buena                        | ✅ Buena                              |
+| **Time-to-value**                                 | ✅ Semanas                                  | ⚠️ Meses (providers)            | ⚠️ Meses (adaptadores)                |
+| **Evidencia verificable**                         | ✅ SQL + checkpoint + rollback probado      | ⚠️ Plan output variable         | ⚠️ Secreto = no loggeable             |
+| **Riesgo técnico**                                | Bajo (SQL parsing maduro)                   | Alto (HCL providers)            | Medio (adaptadores)                   |
+
+**Decisión:** **Candidato A** maximiza la demostración de la arquitectura híbrida de Hermes (Sec 7) con mínimo riesgo técnico y máximo valor demostrable. Es el "hello world" canónico de un sistema de ingeniería+gobernanza: entrada = intención de cambio de esquema → salida = migración ejecutada con evidencia forense completa.
+
+---
+
+### 4) Criterios de Éxito Verificables del DIR (Documento de Intención y Requisitos)
+
+El DIR debe contener y pasar:
+
+| #      | Criterio                                                      | Cómo se Verifica                                                                                           |
+| ------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **1**  | **Hash SHA-256 de la intención original**                     | `sha256sum DIR.md` produce hash registrado en `phase_executions.approval_hashes`                           |
+| **2**  | **Requisitos funcionales con IDs únicos y trazabilidad**      | Cada requisito `REQ-XXX` mapea a código en `src/` y test en `src/test/`                                    |
+| **3**  | **Criterios de aceptación binarios y automatizables**         | Cada criterio tiene test correspondiente en `src/test/integration/migration-governance.test.ts`            |
+| **4**  | **Invariantes inmutables definidas**                          | Documentadas en DIR §5; tests de invariantes en `src/test/unit/invariants.test.ts`                         |
+| **5**  | **Modelo de amenazas STRIDE**                                 | Documentado en DIR §6; tests de seguridad en `src/test/security/`                                          |
+| **6**  | **Decisión de arquitectura con justificación formal (Sec 7)** | DIR §7 documenta: HÍBRIDA con justificación por componente; firmado por arquitecto                         |
+| **7**  | **Modelo de datos con restricciones ACID**                    | Migración SQL en `src/storage/migrations/`; `better-sqlite3` + WAL verificado                              |
+| **8**  | **Plan de ejecución con DAG y puertas de prueba**             | `taskDag` en DIR §12; tests de ejecución en `src/test/integration/`                                        |
+| **9**  | **Approval gate HMAC-SHA256 obligatorio**                     | Tests: migración sin approval → 403; con HMAC válido → ejecución + checkpoint                              |
+| **10** | **Evidencia forense completa**                                | `sqlite3 state.db "SELECT * FROM checkpoints WHERE phase_id='migration-01';"` muestra cadena hash completa |
+
+**Entregable:** `docs/DIR-MIGRATION-GOVERNANCE.md` + `DIR-MIGRATION-GOVERNANCE.md.sha256`
+
+---
+
+### 5) Validación con Stakeholders (Preguntas Obligatorias)
+
+Antes de firmar el DIR, validar con:
+
+| Stakeholder                         | Preguntas Clave                                                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Equipo de Ingeniería (Backend)**  | ¿Dialectos SQL objetivo? (PostgreSQL/MySQL/SQLite) ¿ORM actual? (Prisma/Drizzle/TypeORM/Knex/Raw) ¿Migraciones actuales manuales o tool? (Flyway/Liquibase/Prisma Migrate) |
+| **Equipo de Plataforma/DevOps**     | ¿Entornos? (dev/staging/prod) ¿Pipeline CI/CD actual? ¿Cómo se ejecutan migraciones hoy? ¿Rollback manual?                                                                 |
+| **Seguridad/Compliance**            | ¿Políticas de aprobación actuales? ¿Requisitos de auditoría? (SOC2/ISO27001) ¿Datos sensibles en migraciones?                                                              |
+| **Product/Arquitectura**            | ¿Compatible con arquitectura actual? ¿Impacto en API contracts? ¿Versionado de esquema?                                                                                    |
+| **Usuario Final (Desarrolladores)** | ¿UX deseada? (CLI/UI/Webhook) ¿Integración con IDE? ¿Feedback loop tiempo real?                                                                                            |
+
+**Regla:** Ninguna suposición. Cada respuesta se registra en DIR con trazabilidad a requisito. Si hay desacuerdo → DIR no se firma.
+
+---
+
+### 6) Próximos Pasos Inmediatos (Post-Aprobación DIR)
+
+1. **Kickoff Fase 10** — Arquitectura del sistema (Sec 9: Ciclo Maestro pasos 7-12)
+2. **ADR-001** — Decisión híbrida con justificación Sec 7 (Architecture Decision Record)
+3. **Especificación de tipos de dominio** — `src/types/migration.ts` (Sec 17: Fase 01 Domain Types)
+4. **Parser/Validador SQL determinista** — `src/core/migration/parser.ts` + tests
+5. **AIProvider analyzer** — `src/providers/migration-analyzer.ts` (agente único, schema JSON estricto)
+6. **Execution engine integration** — Tasks `shell` (psql/mysql) + `ai_stream` (análisis) en DAG
+7. **Integración frontend** — `MigrationGovernanceView` en `/migrations` tab
+
+**Compromiso:** DIR firmado → implementación incremental con gates de evidencia en cada fase del Ciclo Maestro. No código sin evidencia.
+
+---
+
+**Firma del Análisis:** OPENSE — Análisis independiente, sin leer propuestas de otros agentes. Evidencia: código real verificado (Phases 07-09), arquitectura híbrida justificada contra Sec 7, DIR con criterios verificables.
