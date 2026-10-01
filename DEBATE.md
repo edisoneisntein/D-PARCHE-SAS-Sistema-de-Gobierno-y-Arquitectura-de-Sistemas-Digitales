@@ -1228,3 +1228,13 @@ El DIR (`docs/DIR-AGNES-WRAPPER.md` + `.sha256`) debe contener y pasar:
 - Paso 1: auditoría técnica de AGNES (stack, puntos de fallo, waste rate actual, lock-in, almacenamiento, prompts).
 - Paso 2: redactar DIR con los criterios de éxito de arriba.
 - Paso 3: firma y cierre. Solo entonces se abre Fase 11.
+
+## Addendum F10 (decisión del creador — requisito explícito)
+
+- **Moderación configurable:** AGNES (wrapper de gobierno) NO impondrá censura por encima de la voluntad del usuario. El filtrado de contenido será opt-in y configurable; el usuario declara uso artístico propio. Todo bloqueo por defecto queda descartado como requisito.
+- **Nota de gobernanza:** la auditoría de prompts/contenido queda como herramienta de trazabilidad para el usuario, no como barrera.
+
+## Addendum F10b (decisión del creador — alcance ampliado)
+
+- **UI/UX propia de primer nivel:** además del wrapper de gobierno, AGNES tendrá una **interfaz propia construida por D'Parche SAS**, orientada a flujo creativo (prompting, revisión, galería, reutilización de assets, costos visibles). No se hereda la UI de la app base: se diseña y construye como producto propio.
+- **Criterio:** la Fase 11 de implementación incluirá tanto el wrapper de gobierno (backend) como la UI/UX (frontend), con validación de usabilidad y evidencia.
