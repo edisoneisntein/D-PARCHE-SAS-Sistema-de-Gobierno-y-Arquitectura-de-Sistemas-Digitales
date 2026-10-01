@@ -7,7 +7,7 @@
 
 ## Contexto
 
-**Proyecto:** D'PACHE SAS — Sistema de Gobierno y Arquitectura de Sistemas Digitales
+**Proyecto:** D'Parche SAS — Sistema de Gobierno y Arquitectura de Sistemas Digitales
 **Repo:** https://github.com/edisoneisntein/D-PARCHE-SAS-Sistema-de-Gobierno-y-Arquitectura-de-Sistemas-Digitales
 **Stack:** React 19 + TypeScript (strict) + Vite + Express + Tailwind 4. Consola de gobernanza del agente Hermes (documento maestro 32 secciones, 26 fases del Master Cycle, epistemología de 8 estados).
 
@@ -402,3 +402,200 @@ Implementador único: **OPENCODE**. Alcance = puntos 1-4. Increméntico; primero
 ## Historial de Fases
 
 - Fase "Honestidad Verificable" — decidida y verificada (2026-09-30). Implementador: OPENCODE. Árbitro/verificador: MiMoCode. Registro completo en este archivo.
+
+## Fase Actual
+
+**Fase 08 (2026-09-30): Execution Engine REAL + Persistencia/Checkpoints + AIProvider desacoplado.** Reunión de INICIO convocada; propuestas independientes antes de tocar código.
+
+## Propuesta F08 de OPENSE (Análisis Independiente)
+
+### 1) Alcance Concreto de la Fase
+
+**Qué ENTRA en F08 (ejecución real end-to-end):**
+
+| Componente | Descripción | Estado actual |
+|------------|-------------|---------------|
+| **Execution Engine real** | Ejecutor de tareas que corre código/agentes en sandbox, NO simulación | NO EXISTE (referenciado en testPhases.ts como `src/audit/execution-engine.ts` pero no existe) |
+| **Sandbox obligatorio** | Aislamiento gVisor/nsjail/WASM para shell, fs, red | NO EXISTE |
+| **Persistencia + Checkpoints** | SQLite/PostgreSQL para state.db, checkpoints, recovery | NO EXISTE (Fase 07 pendiente, prerrequisito) |
+| **AIProvider abstraction** | Interfaz desacoplada (Gemini, OpenAI, Anthropic, Local) | HARDCODEADO a Google GenAI en server.ts:119-128 |
+| **API routes de fase** | `/api/hermes/phase/execute`, `/api/hermes/phase/status`, `/api/hermes/phase/approve` | SOLO `/api/hermes/chat` existe |
+
+**Qué NO entra en F08 (se deja para fases posteriores):**
+- Capability Registry / Skills / Plugins / MCP (Fase posterior)
+- Agentes multiagente reales (Fase 09-10 requieren sandbox + persistencia primero)
+- Observabilidad distribuida / dashboards (Fase 24)
+- Deployment / infraestructura (Fase 21-22)
+
+**Recorte propuesto:** F08 debe centrarse **solo** en: (1) Persistencia mínima (SQLite) + checkpoints, (2) Sandbox real (gVisor/nsjail) para UNA skill de prueba, (3) AIProvider interface + 1 implementación, (4) Routes de fase. Todo lo demás es scope creep.
+
+---
+
+### 2) Arquitectura Propuesta
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HERMES CORE (Authority)                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │ State Machine│  │ Policy Engine│  │ Approval    │  │ Evidence        │  │
+│  │ (Phase 06)   │  │ (Phase 03)   │  │ Gate (hash) │  │ Evaluator       │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │
+│         │                │                │                 │            │
+│         ▼                ▼                ▼                 ▼            │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    EXECUTION ORCHESTRATOR                        │    │
+│  │  • Recibe PhaseExecutionRequest (phaseId, taskDAG, approvals)   │    │
+│  │  • Valida approvals (hash-locked) vs Policy Engine              │    │
+│  │  • Descompone en TaskExecutionRequest[]                         │    │
+│  │  • Para cada task:                                               │    │
+│  │    - Resuelve AIProvider (config) → devuelve modelo             │    │
+│  │    - Prepara sandbox spec (tools, fs, net, timeouts)            │    │
+│  │    - Ejecuta en Sandbox Runner                                   │    │
+│  │    - Captura stdout/stderr/exitCode/artifacts                   │    │
+│  │    - Persiste Checkpoint (state.db)                             │    │
+│  │  • Emite PhaseExecutionEvent stream (SSE)                       │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+           ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+           │  Sandbox    │  │  SQLite     │  │  AIProvider │
+           │  Runner     │  │  (state.db) │  │  Registry   │
+           │  (gVisor)   │  │  + WAL      │  │  (interface)│
+           └─────────────┘  └─────────────┘  └─────────────┘
+                    │               │               │
+           ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+           │ Isolated    │  │ Checkpoints │  │ Gemini      │
+           │ process     │  │ + Recovery  │  │ OpenAI      │
+           │ per task    │  │ WAL mode    │  │ Anthropic   │
+           └─────────────┘  └─────────────┘  │ Local (llama)│
+                                            └─────────────┘
+```
+
+**Componentes nuevos a crear:**
+
+| Archivo | Responsabilidad |
+|---------|-----------------|
+| `src/core/execution-engine.ts` | Orquestador principal: recibe phase execution request, valida approvals, descompone en tasks, ejecuta en sandbox, emite eventos SSE |
+| `src/core/sandbox/runner.ts` | Wrapper gVisor/nsjail: `runInSandbox(spec: SandboxSpec): Promise<ExecutionResult>` |
+| `src/core/sandbox/isolation-gate.ts` | Valida SandboxSpec contra Policy Engine antes de ejecutar |
+| `src/storage/persistence.ts` | SQLite (better-sqlite3) + WAL: checkpoints, task results, audit trail |
+| `src/storage/recovery-engine.ts` | Replay desde último checkpoint válido |
+| `src/providers/ai-provider.ts` | Interface `AIProvider { generateContentStream(req), listModels() }` |
+| `src/providers/gemini.ts` | Implementación actual (extraída de server.ts) |
+| `src/api/routes/phase-execution.ts` | `POST /api/hermes/phase/execute`, `GET /api/hermes/phase/status/:id`, `POST /api/hermes/phase/approve` |
+
+**Flujo de ejecución de fase (end-to-end):**
+
+```
+1. Cliente → POST /api/hermes/phase/execute { phaseId, taskDAG, approvals[] }
+2. ExecutionEngine.validateApprovals(approvals) → PolicyEngine.check()
+3. ExecutionEngine.decompose(taskDAG) → Task[] ordenados topológicamente
+4. Para cada task:
+   a. AIProviderRegistry.get(config.model) → provider
+   b. SandboxSpec.build(task.tools, task.fs, task.net, task.timeout)
+   c. IsolationGate.validate(SandboxSpec) → PolicyEngine.check()
+   d. SandboxRunner.run(spec) → { stdout, stderr, exitCode, artifacts[] }
+   e. Persistence.saveCheckpoint(phaseId, taskId, result)
+   f. SSE: event { type: 'task_complete', taskId, result }
+5. Al finalizar: SSE event { type: 'phase_complete', phaseId, summary }
+```
+
+**SandboxSpec (tipo):**
+```typescript
+interface SandboxSpec {
+  command: string;           // ej: "node", "python", "bash"
+  args: string[];            // argumentos
+  env: Record<string, string>; // SOLO vars permitidas (sin secretos)
+  fs: {                      // filesystem access
+    readOnly: string[];      // paths permitidos lectura
+    readWrite: string[];     // paths permitidos escritura (tmp aislado)
+  };
+  net: {                     // network
+    allow: string[];         // dominios/IPs permitidos (empty = none)
+  };
+  limits: {
+    cpuMs: number;           // max CPU time
+    memoryMb: number;        // max RAM
+    wallTimeMs: number;      // max wall clock
+  };
+}
+```
+
+---
+
+### 3) Evidencia de Por Qué Así (Referencia Archivos Actuales)
+
+| Hallazgo | Archivo/Línea | Implicación |
+|----------|---------------|-------------|
+| **No existe execution-engine.ts** | `grep -r "execution-engine" src/` → 0 resultados | El archivo referenciado en `testPhases.ts:107` (`src/audit/execution-engine.ts`) **no existe**. La "ejecución simulada" es teatro. |
+| **AIProvider hardcodeado** | `server.ts:119-128` `getGenAI()` usa `GoogleGenAI` directamente | Violación Sección 11: "AIProvider desacoplado del dominio central". No hay interfaz, no hay swap de modelos. |
+| **Sin persistencia** | `server.ts` no importa ningún DB; `WORK_PLAN.md` Fase 07 = ROADMAP | No hay state.db, no hay checkpoints, no hay recovery. Fase 07 es prerrequisito obligatorio. |
+| **Sandbox = CLAIM_UNVERIFIED** | `capabilityAudit.ts`: `cap-file-writer` tiene `hasSandbox: false`, `cap-browser-auto` `hasSandbox: false` | Las capacidades que escriben FS/red NO tienen sandbox. Ejecutarlas en host = violación Sección 15. |
+| **Solo endpoint chat** | `server.ts:179` solo `/api/hermes/chat` | Faltan routes de fase: execute, status, approve (Fase 10). |
+| **Herramientas = string suelta** | `hermesEngine.ts:113-116` recomienda "Tool Registry con JSON-Schema" | No existe Tool Registry. Las skills no tienen schema tipado. |
+| **Approval gate = hash-locked** | `hermesEngine.ts:116` "Gate de Aprobación Humana / Hash-locked tokens" | `useHashLockedPatch.ts` era demo; el approval gate real debe validar hash SHA-256 contra store. |
+
+---
+
+### 4) Riesgos y Mitigaciones
+
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|--------|--------------|---------|------------|
+| **gVisor/nsjail no disponible en entorno** | Alta | Crítico | PoC obligatorio Semana 1: `docker run --runtime=gvisor hello-world`. Si falla → fallback a `nsjail` o `firejail`. Documentar en ADR. |
+| **Scope creep: intentar multiagente ya** | Alta | Alto | **Recortar F08 a single-agent + sandbox**. Multiagente requiere bus de mensajes + arbitro + sandbox por agente = Fase 09-10. |
+| **SQLite no soporta concurrencia suficiente** | Media | Medio | Usar `better-sqlite3` con WAL mode + `PRAGMA busy_timeout=5000`. Para prod → PostgreSQL (adapter pattern). |
+| **AIProvider interface mal diseñada** | Media | Alto | TDD: escribir tests de contrato ANTES de implementar. Interface mínima: `generateContentStream`, `listModels`, `countTokens`. |
+| **Leak de secretos en sandbox** | Alta | Crítico | SandboxSpec **nunca** recibe secretos. Sanitización ANTES de construir spec. Secretos solo en Hermes Core → inyectados via env vars de vida corta. |
+| **Checkpoint corruption / WAL lock** | Media | Alto | Tests de chaos: kill -9 durante write → recovery debe reconstruir estado. WAL + atomic writes. |
+| **Token budget overflow** | Media | Medio | ExecutionEngine trackea tokens por phase/task. Hard limit configurable. Kill sandbox si excede. |
+| **Dependencia gVisor en CI/CD** | Alta | Medio | CI usa `docker` con `--runtime=gvisor` o salta tests de sandbox (marca `sandbox: false` en CI). |
+
+---
+
+### 5) Criterios de Éxito VERIFICABLES (Tests/Comandos)
+
+| Criterio | Comando / Test | Evidencia Requerida |
+|----------|----------------|---------------------|
+| **Persistencia funciona** | `npm run test:storage` | 35 tests passing (TEST_PHASES_DATA fase-07: 35 tests) |
+| **Checkpoint + Recovery** | `npm run test:recovery` | Kill durante write → recovery reconstruye estado exacto |
+| **Sandbox ejecuta código real** | `npm run test:sandbox` | `echo "hello" > /tmp/out.txt` dentro de sandbox → archivo aparece en host (readOnly path) |
+| **Sandbox bloquea red/fs no autorizado** | `npm run test:sandbox-security` | Intento `fetch('http://evil.com')` → ECONNREFUSED; `write('/etc/passwd')` → EACCES |
+| **AIProvider swappable** | `npm run test:ai-provider` | Mismo test pasa con `GeminiProvider` y `MockProvider` |
+| **Phase execute route** | `npm run test:phase-api` | POST /phase/execute → 202 + SSE events → GET /phase/status → COMPLETED |
+| **Approval gate valida hash** | `npm run test:approval` | Approval con hash erróneo → 403; hash correcto → ejecuta |
+| **Sanitización pre-ejecución** | `npm run test:sanitization-e2e` | Prompt con `sk-xxx` → no llega a sandbox ni a logs |
+| **E2E: Phase 01 (Domain Types)** | `npm run test:e2e-phase-01` | Ejecuta Fase 01 completa vía API → genera archivos → tests pasan |
+| **CI Gate** | `npm run ci` | typecheck + lint + test + build = 0 errores |
+
+**Tests mínimos nuevos a escribir (basados en TEST_PHASES_DATA):**
+- `src/test/storage/persistence.test.ts` (35 tests)
+- `src/test/sandbox/runner.test.ts` (20 tests)
+- `src/test/sandbox/security.test.ts` (15 tests)
+- `src/test/providers/ai-provider.test.ts` (15 tests)
+- `src/test/integration/phase-execution.test.ts` (25 tests)
+
+---
+
+### 6) Estimación de Esfuerzo
+
+| Item | Esfuerzo | Notas |
+|------|----------|-------|
+| **Persistencia (SQLite + WAL + checkpoints)** | 3 días | `better-sqlite3`, schema migraciones, WAL, recovery engine |
+| **Sandbox Runner (gVisor PoC + wrapper)** | 4 días | PoC día 1 (go/no-go), wrapper TS, isolation-gate, timeouts |
+| **AIProvider Interface + Gemini impl** | 2 días | Extraer de server.ts, añadir MockProvider para tests |
+| **Phase Execution Routes + Orchestrator** | 3 días | Routes, DAG executor, SSE streaming, approval gate |
+| **Tests (110+ nuevos)** | 3 días | TDD: tests primero, implementación después |
+| **Integración + CI + Docs** | 1 día | Pipeline, ADR, README updates |
+| **TOTAL** | **16 días** (~3.5 semanas) | **Un solo ingeniero** (evita overhead de coordinación) |
+
+**Si se recorta a lo estrictamente mínimo viable (MVP F08):**
+- Solo SQLite + checkpoints básicos (2 días)
+- Solo nsjail (más simple que gVisor) para UNA skill `shell` (3 días)
+- AIProvider solo Gemini (1 día)
+- Solo route `POST /phase/execute` + SSE (2 días)
+- Tests: 50 críticos (2 días)
+- **Total recortado: 10 días (~2 semanas)**
+
+**Recomendación:** Hacer el recorte. F08 objetivo = **"Una fase se ejecuta end-to-end real en sandbox con persistencia"**. Todo lo demás = deuda técnica para F09-10.

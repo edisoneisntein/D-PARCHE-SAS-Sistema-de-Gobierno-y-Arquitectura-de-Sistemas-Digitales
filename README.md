@@ -1,4 +1,4 @@
-# D'PACHE SAS — Hermes Agent Governance Console
+# D'Parche SAS — Hermes Agent Governance Console
 
 > **Consola de gobernanza para Hermes Agent** — Sistema de ingeniería, gobierno y operación de sistemas digitales complejos.
 
