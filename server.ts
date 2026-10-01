@@ -21,6 +21,9 @@ import {
 } from './src/middleware/auth';
 import { getAuthConfig } from './src/config/auth';
 import { HERMES_CORE_SYSTEM_PROMPT } from './src/config/systemPrompt';
+import { getExecutionEngine } from './src/core';
+import { PhaseExecutionRequest } from './src/core/execution-engine';
+import { randomUUID } from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -320,6 +323,193 @@ app.post('/api/hermes/chat', requireAuth, keyLimiter, async (req: Request, res: 
       res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
       res.end();
     }
+  }
+});
+
+// ==================== Phase Execution Endpoints ====================
+
+// Zod schema for phase execution request
+const PhaseExecutionRequestSchema = z.object({
+  phaseId: z.string().min(1).max(100),
+  taskDag: z.object({
+    nodes: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(100),
+          type: z.enum(['shell', 'ai_generate', 'ai_stream']),
+          command: z.string().optional(),
+          args: z.array(z.string()).optional(),
+          prompt: z.string().optional(),
+          model: z.string().optional(),
+          systemInstruction: z.string().optional(),
+          temperature: z.number().min(0).max(2).optional(),
+          timeoutMs: z.number().positive().optional(),
+          dependencies: z.array(z.string()).optional(),
+        })
+      )
+      .min(1)
+      .max(50),
+    edges: z
+      .array(
+        z.object({
+          from: z.string().min(1),
+          to: z.string().min(1),
+        })
+      )
+      .max(100)
+      .optional()
+      .default([]),
+  }),
+  approvals: z
+    .array(
+      z.object({
+        targetId: z.string().min(1),
+        targetHash: z.string().length(64), // SHA-256 hex
+        hmac: z.string().length(64), // HMAC-SHA256 hex
+      })
+    )
+    .max(20)
+    .optional()
+    .default([]),
+});
+
+// Phase execute endpoint (SSE)
+app.post(
+  '/api/hermes/phase/execute',
+  requireAuth,
+  keyLimiter,
+  async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const authReq = req as AuthenticatedRequest;
+
+    try {
+      // Validate request body
+      const validation = PhaseExecutionRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        logger.warn({ errors: validation.error.flatten() }, 'Invalid phase execution request');
+        res
+          .status(400)
+          .json({ error: 'Invalid request body', details: validation.error.flatten() });
+        return;
+      }
+
+      const request: PhaseExecutionRequest = validation.data;
+
+      // Setup Server-Sent Events (SSE)
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      // Send initial metadata
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'meta',
+          phaseId: request.phaseId,
+          executionId: randomUUID(),
+          taskCount: request.taskDag.nodes.length,
+        })}\n\n`
+      );
+
+      const engine = getExecutionEngine();
+
+      // Execute phase and stream events
+      for await (const event of engine.executePhase(request)) {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+
+      logger.info(
+        {
+          duration: Date.now() - startTime,
+          phaseId: request.phaseId,
+          keyHash: authReq.auth?.keyHash?.substring(0, 8),
+        },
+        'Phase execution completed'
+      );
+    } catch (error) {
+      const err = error as Error;
+      logger.error({ err, duration: Date.now() - startTime }, 'Error in /api/hermes/phase/execute');
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Error en ejecución de fase' });
+      } else {
+        res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+        res.end();
+      }
+    }
+  }
+);
+
+// Phase status endpoint
+app.get(
+  '/api/hermes/phase/status/:executionId',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const executionId = req.params.executionId;
+      if (!executionId) {
+        res.status(400).json({ error: 'executionId parameter required' });
+        return;
+      }
+      const engine = getExecutionEngine();
+      const status = engine.getPhaseStatus(executionId);
+
+      if (!status) {
+        res.status(404).json({ error: 'Phase execution not found' });
+        return;
+      }
+
+      const checkpoints = engine.getPhaseCheckpoints(status.phase_id);
+
+      res.json({
+        executionId: status.id,
+        phaseId: status.phase_id,
+        status: status.status,
+        taskDag: JSON.parse(status.task_dag_json),
+        approvalHashes: JSON.parse(status.approval_hashes),
+        createdAt: status.created_at,
+        updatedAt: status.updated_at,
+        completedAt: status.completed_at,
+        checkpoints: checkpoints.map((cp) => ({
+          id: cp.id,
+          taskId: cp.task_id,
+          status: cp.status,
+          hash: cp.hash,
+          prevHash: cp.prev_hash,
+          createdAt: cp.created_at,
+          updatedAt: cp.updated_at,
+        })),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error({ err }, 'Error in /api/hermes/phase/status');
+      res.status(500).json({ error: err.message || 'Error obteniendo estado de fase' });
+    }
+  }
+);
+
+// Phase recovery endpoint
+app.post('/api/hermes/phase/recover/:phaseId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const phaseId = req.params.phaseId;
+    if (!phaseId) {
+      res.status(400).json({ error: 'phaseId parameter required' });
+      return;
+    }
+    const engine = getExecutionEngine();
+    const result = engine.recoverPhase(phaseId);
+
+    res.json({
+      phaseId,
+      recovered: result.recovered,
+      lastCheckpoint: result.lastCheckpoint,
+    });
+  } catch (error) {
+    const err = error as Error;
+    logger.error({ err }, 'Error in /api/hermes/phase/recover');
+    res.status(500).json({ error: err.message || 'Error en recuperación de fase' });
   }
 });
 
