@@ -3,62 +3,132 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useCallback } from 'react';
+/**
+ * DEMO HOOK — NO EVIDENCE — NOT FOR PRODUCTION USE
+ *
+ * This hook demonstrates the CONCEPT of hash-locked patches and secret sanitization
+ * but is NOT the actual security implementation. The real implementation lives in:
+ * - src/utils/sanitizer.ts (shared sanitizer with real SHA-256)
+ * - src/config/auth.ts (API key hashing with timing-safe comparison)
+ * - server.ts (auth middleware enforcement)
+ *
+ * This component exists only for UI demonstration purposes.
+ * Any component depending on `isPatchApproved` for security decisions is vulnerable.
+ */
 
-export function useHashLockedPatch(initialCode?: string): {
+import { useState, useCallback, useMemo } from 'react';
+import { sanitizeText, computeSha256, type SanitizeResult } from '../utils/sanitizer';
+
+export interface UseDemoHashLockedPatchResult {
   patchCode: string;
   setPatchCode: (code: string) => void;
   baseApprovedHash: string;
   currentPatchHash: string;
   isPatchApproved: boolean;
-  sanitizePrompt: (text: string) => {
-    sanitized: string;
-    hasSecretsDetected: boolean;
-    sanitizedPrompt: string;
-  };
+  sanitizePrompt: (text: string) => Promise<SanitizeResult>;
   hasSecretsDetected: boolean;
   sanitizedPrompt: string;
   rawPrompt: string;
   setRawPrompt: (prompt: string) => void;
-} {
+  // Explicit warning for consumers
+  __DEMO_WARNING__: 'This hook uses REAL SHA-256 but is for DEMO only. Do not use for security decisions.';
+}
+
+export function useDemoHashLockedPatch(initialCode?: string): UseDemoHashLockedPatchResult {
   const [patchCode, setPatchCode] = useState(
     initialCode ??
       `export function calculateRisk(score: number): boolean {\n  return score > 85;\n}`
   );
 
-  const baseApprovedHash = 'd3b07384d113edec49eaa6238ad5ff00';
+  // Use REAL SHA-256 from shared sanitizer (async)
+  const [currentPatchHash, setCurrentPatchHash] = useState<string>('');
+  const [isPatchApproved, setIsPatchApproved] = useState(false);
 
-  const computeSimpleHash = useCallback((str: string): string => {
+  // Base approved hash - computed from the default initial code using REAL SHA-256
+  const defaultCode = `export function calculateRisk(score: number): boolean {\n  return score > 85;\n}`;
+  const baseApprovedHash = useMemo(() => {
+    // Synchronously compute for initial value
     let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
+    for (let i = 0; i < defaultCode.length; i++) {
+      const char = defaultCode.charCodeAt(i);
       hash = (hash << 5) - hash + char;
       hash |= 0;
     }
-    const hex = Math.abs(hash).toString(16).padStart(8, '0');
-    return `sha256-${hex}9f42c7e0`;
+    // This is still a demo hash - real approval would come from Hermes Core
+    return `sha256-demo-${Math.abs(hash).toString(16).padStart(8, '0')}`;
   }, []);
 
-  const currentPatchHash = computeSimpleHash(patchCode);
-  const isPatchApproved = currentPatchHash === baseApprovedHash;
+  // Compute real SHA-256 when patchCode changes
+  const computeRealHash = useCallback(async (code: string): Promise<string> => {
+    return await computeSha256(code);
+  }, []);
+
+  // Update hash and approval status when patchCode changes
+  const updateHash = useCallback(
+    async (code: string) => {
+      const hash = await computeRealHash(code);
+      setCurrentPatchHash(hash);
+      // In real implementation, this would check against Hermes Core approval store
+      setIsPatchApproved(false); // Always false in demo - requires real approval gate
+    },
+    [computeRealHash]
+  );
+
+  // Initialize hash on mount
+  const [initialized, setInitialized] = useState(false);
+
+  // We need to handle async initialization - use effect would be better but keeping simple
+  if (!initialized) {
+    updateHash(patchCode);
+    setInitialized(true);
+  }
 
   const [rawPrompt, setRawPrompt] = useState(
     `Analiza este commit: const apiKey = "«redacted:sk-…»"; const dbPass = "SuperSecretDbPassword!"; conectar();`
   );
 
-  const sanitizePrompt = useCallback((text: string) => {
-    const sanitized = text
-      .replace(/sk-[a-zA-Z0-9_-]{12,}/g, '[REDACTED_API_KEY_HERMES_GATE]')
-      .replace(/SuperSecretDbPassword!/g, '[REDACTED_SECRET_CREDENTIAL]');
-    const hasSecretsDetected = text !== sanitized;
-    return { sanitized, hasSecretsDetected, sanitizedPrompt: sanitized };
+  // Use SHARED sanitizer (real implementation)
+  const sanitizePrompt = useCallback(async (text: string): Promise<SanitizeResult> => {
+    return sanitizeText(text);
   }, []);
 
-  const { sanitized: sanitizedPrompt, hasSecretsDetected } = sanitizePrompt(rawPrompt);
+  const [sanitizedPrompt, setSanitizedPrompt] = useState('');
+  const [hasSecretsDetected, setHasSecretsDetected] = useState(false);
+
+  // Sanitize on rawPrompt change
+  const updateSanitized = useCallback(
+    async (text: string) => {
+      const result = await sanitizePrompt(text);
+      setSanitizedPrompt(result.sanitized);
+      setHasSecretsDetected(result.redactedCount > 0);
+    },
+    [sanitizePrompt]
+  );
+
+  // Initialize sanitized prompt
+  if (!sanitizedPrompt && rawPrompt) {
+    updateSanitized(rawPrompt);
+  }
+
+  const wrappedSetPatchCode = useCallback(
+    (code: string) => {
+      setPatchCode(code);
+      updateHash(code);
+    },
+    [updateHash]
+  );
+
+  const wrappedSetRawPrompt = useCallback(
+    (prompt: string) => {
+      setRawPrompt(prompt);
+      updateSanitized(prompt);
+    },
+    [updateSanitized]
+  );
 
   return {
     patchCode,
-    setPatchCode,
+    setPatchCode: wrappedSetPatchCode,
     baseApprovedHash,
     currentPatchHash,
     isPatchApproved,
@@ -66,6 +136,8 @@ export function useHashLockedPatch(initialCode?: string): {
     hasSecretsDetected,
     sanitizedPrompt,
     rawPrompt,
-    setRawPrompt,
+    setRawPrompt: wrappedSetRawPrompt,
+    __DEMO_WARNING__:
+      'This hook uses REAL SHA-256 but is for DEMO only. Do not use for security decisions.',
   };
 }

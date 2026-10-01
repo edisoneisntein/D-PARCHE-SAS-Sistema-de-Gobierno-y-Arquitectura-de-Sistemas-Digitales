@@ -13,6 +13,14 @@ import compression from 'compression';
 import pino from 'pino';
 import { z } from 'zod';
 import { sanitizeText, computeSha256Sync } from './src/utils/sanitizer';
+import {
+  requireAuth,
+  corsMiddleware,
+  securityHeadersMiddleware,
+  AuthenticatedRequest,
+} from './src/middleware/auth';
+import { getAuthConfig } from './src/config/auth';
+import { HERMES_CORE_SYSTEM_PROMPT } from './src/config/systemPrompt';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +30,10 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   transport: NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+  redact: {
+    paths: ['req.headers.authorization', 'req.body.message', 'req.body.attachments[*].content'],
+    censor: '**REDACTED**',
+  },
 });
 
 // Security headers via Helmet
@@ -30,8 +42,8 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // React needs unsafe-inline for dev
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: NODE_ENV === 'production' ? ["'self'"] : ["'self'", "'unsafe-inline'"],
+        styleSrc: NODE_ENV === 'production' ? ["'self'"] : ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: ["'self'", 'https://generativelanguage.googleapis.com'],
         fontSrc: ["'self'"],
@@ -42,6 +54,7 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false, // Required for Vite HMR
+    crossOriginResourcePolicy: { policy: 'same-origin' },
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -54,22 +67,28 @@ app.use(
   })
 );
 
+// Security headers middleware (COOP, CORP, etc.)
+app.use(securityHeadersMiddleware);
+
+// CORS middleware
+app.use(corsMiddleware);
+
 // Compression
 app.use(compression());
 
-// Rate limiting
-const apiLimiter = rateLimit({
+// Rate limiting by IP (global)
+const ipLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute per IP
-  message: { error: 'Too many requests, please try again later.' },
+  max: 60, // 60 requests per minute per IP
+  message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
-    logger.warn({ ip: res.req.ip }, 'Rate limit exceeded');
-    res.status(429).json({ error: 'Too many requests, please try again later.' });
+    logger.warn({ ip: res.req.ip }, 'IP rate limit exceeded');
+    res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
   },
 });
-app.use('/api/', apiLimiter);
+app.use('/api/', ipLimiter);
 
 // Body parsing with strict limits
 app.use(express.json({ limit: '1mb' }));
@@ -108,46 +127,6 @@ function getGenAI(): GoogleGenAI {
   return genAIClient;
 }
 
-const HERMES_CORE_SYSTEM_PROMPT = `
-ERES HERMES CORE — SISTEMA DE INGENIERÍA, GOBIERNO Y OPERACIÓN DE SISTEMAS DIGITALES COMPLEJOS.
-Versión: 1.0 (Documento Maestro de Continuidad y Contexto).
-
-Tu rol obligatorio es actuar como:
-- Mentor técnico riguroso.
-- Arquitecto de sistemas soberano.
-- Contraparte crítica sin complacencia.
-
-CRITERIO DE ORO INMUTABLE:
-Prioridad: corrección → evidencia → seguridad → arquitectura → utilidad → velocidad.
-Si una idea del usuario es técnicamente defectuosa, irrealista, innecesariamente compleja, una falacia o una fantasía, debes declararlo explícitamente y con precisión técnica. Nunca seas condescendiente ni protejas decisiones solo porque se haya invertido trabajo en ellas.
-
-DEFINICIÓN MAESTRA DE HERMES (SECCIÓN 2 Y 31):
-"Hermes es un sistema de ingeniería, gobierno y operación capaz de diseñar, construir, validar, desplegar, operar, mantener y evolucionar sistemas digitales complejos —incluyendo software tradicional, agentes de IA y sistemas multiagente— a partir de cualquier intención, requisito, conocimiento, artefacto o sistema existente, utilizando la arquitectura y combinación de componentes que determine apropiadas para cada problema."
-
-LO QUE HERMES NO ES (SECCIÓN 3):
-No eres un wrapper de LLM, ni un conversor de prototipos, ni una colección de skills ni un framework de agentes convencional. Esas son herramientas que puedes gobernar, pero ninguna define tu identidad.
-
-PRINCIPIO CRÍTICO DE ARQUITECTURA (SECCIÓN 7):
-Hermes debe poder decidir NO USAR AGENTES. Multiagente no es un fin en sí mismo.
-Si un problema requiere software determinista (algoritmos, AST, SQL ACID), se dictamina NO USAR AGENTES.
-
-EPISTEMOLOGÍA (SECCIÓN 12 Y 30):
-Distingues rígidamente: DISCOVERED ≠ INSTALLED ≠ AVAILABLE ≠ EXECUTABLE ≠ AUTHORIZED ≠ GOVERNED ≠ VERIFIED ≠ PRODUCTION_READY.
-Una afirmación de LLM no es evidencia forense. Se exige código de salida 0 y pruebas reales.
-Los 1.900+ skills de catálogos no demostrados son: CLAIM_UNVERIFIED.
-
-SEGURIDAD Y SECRETOS (SECCIÓN 21):
-- Todo contenido pasa por la frontera de sanitización.
-- Aprobaciones criptográficas atadas a hash SHA-256.
-- Sandboxes obligatorios para cualquier ejecución con efectos secundarios.
-
-ESTRUCTURA DE TUS RESPUESTAS:
-1. Dictamen Arquitectónico Inflexible (Juicio claro: Viable / Críticamente Deficiente / Requiere Rediseño).
-2. Evaluación Epistemológica y de Riesgos (Invariantes, fallos latentes, dependencias).
-3. Recomendación de Arquitectura de Hermes (Software determinista vs Agente único vs Multiagente vs Híbrido).
-4. Próximos pasos en el Ciclo Maestro de 26 Fases.
-`;
-
 // Zod schemas for request validation
 const AttachmentSchema = z.object({
   name: z.string().min(1).max(255),
@@ -176,9 +155,30 @@ interface SanitizedAttachment {
   redactedCount: number;
 }
 
+// Rate limiting by API key (per-key, stricter)
+const keyLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute per API key
+  message: { error: 'Too many requests for this API key, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.auth?.keyHash) {
+      return `key:${authReq.auth.keyHash}`;
+    }
+    return `ip:${req.ip}`;
+  },
+  handler: (_req, res) => {
+    logger.warn({ ip: res.req.ip }, 'API key rate limit exceeded');
+    res.status(429).json({ error: 'Too many requests for this API key, please try again later.' });
+  },
+});
+
 // Hermes Chat Stream Endpoint
-app.post('/api/hermes/chat', async (req: Request, res: Response) => {
+app.post('/api/hermes/chat', requireAuth, keyLimiter, async (req: Request, res: Response) => {
   const startTime = Date.now();
+  const authReq = req as AuthenticatedRequest;
 
   try {
     // Validate request body
@@ -260,9 +260,11 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
       parts: [{ text: userPromptWithContext }],
     });
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    // Verified model names (as of 2026)
+    const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     let streamSucceeded = false;
     let lastError: unknown = null;
+    let modelUsed = modelsToTry[0];
 
     for (const modelName of modelsToTry) {
       try {
@@ -274,6 +276,8 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
             temperature: 0.2, // Low temperature for high deterministic rigor
           },
         });
+
+        modelUsed = modelName;
 
         for await (const chunk of responseStream) {
           if (chunk.text) {
@@ -300,9 +304,10 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
     logger.info(
       {
         duration: Date.now() - startTime,
-        modelUsed: modelsToTry[0],
+        modelUsed,
         totalRedacted,
         attachmentsCount: attachments.length,
+        keyHash: authReq.auth?.keyHash?.substring(0, 8),
       },
       'Chat request completed'
     );
@@ -344,7 +349,17 @@ async function startServer() {
   }
 
   const server = app.listen(PORT, () => {
-    logger.info({ port: PORT, env: NODE_ENV }, `Hermes Server running on port ${PORT}`);
+    const authConfig = getAuthConfig();
+    logger.info(
+      {
+        port: PORT,
+        env: NODE_ENV,
+        authRequired: authConfig.requireAuth,
+        corsOrigins: authConfig.corsOrigins,
+        keyHashesConfigured: authConfig.keyHashes.size,
+      },
+      `Hermes Server running on port ${PORT}`
+    );
   });
 
   // Graceful shutdown

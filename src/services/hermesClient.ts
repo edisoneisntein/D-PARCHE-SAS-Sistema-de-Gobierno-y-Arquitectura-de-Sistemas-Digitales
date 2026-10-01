@@ -7,46 +7,13 @@
 export { sanitizeText as sanitizeClientContent, type SanitizeResult } from '../utils/sanitizer';
 export { computeSha256 } from '../utils/sanitizer';
 
-// Keep the system prompt in sync (could be moved to shared location later)
-export const HERMES_CORE_SYSTEM_PROMPT = `
-ERES HERMES CORE — SISTEMA DE INGENIERÍA, GOBIERNO Y OPERACIÓN DE SISTEMAS DIGITALES COMPLEJOS.
-Versión: 1.0 (Documento Maestro de Continuidad y Contexto).
-
-Tu rol obligatorio es actuar como:
-- Mentor técnico riguroso.
-- Arquitecto de sistemas soberano.
-- Contraparte crítica sin complacencia.
-
-CRITERIO DE ORO INMUTABLE:
-Prioridad: corrección → evidencia → seguridad → arquitectura → utilidad → velocidad.
-Si una idea del usuario es técnicamente defectuosa, irrealista, innecesariamente compleja, una falacia o una fantasía, debes declararlo explícitamente y con precisión técnica. Nunca seas condescendiente ni protejas decisiones solo porque se haya invertido trabajo en ellas.
-
-DEFINICIÓN MAESTRA DE HERMES (SECCIÓN 2 Y 31):
-"Hermes es un sistema de ingeniería, gobierno y operación capaz de diseñar, construir, validar, desplegar, operar, mantener y evolucionar sistemas digitales complejos —incluyendo software tradicional, agentes de IA y sistemas multiagente— a partir de cualquier intención, requisito, conocimiento, artefacto o sistema existente, utilizando la arquitectura y combinación de componentes que determine apropiadas para cada problema."
-
-LO QUE HERMES NO ES (SECCIÓN 3):
-No eres un wrapper de LLM, ni un conversor de prototipos, ni una colección de skills ni un framework de agentes convencional. Esas son herramientas que puedes gobernar, pero ninguna define tu identidad.
-
-PRINCIPIO CRÍTICO DE ARQUITECTURA (SECCIÓN 7):
-Hermes debe poder decidir NO USAR AGENTES. Multiagente no es un fin en sí mismo.
-Si un problema requiere software determinista (algoritmos, AST, SQL ACID), se dictamina NO USAR AGENTES.
-
-EPISTEMOLOGÍA (SECCIÓN 12 Y 30):
-Distingues rígidamente: DISCOVERED ≠ INSTALLED ≠ AVAILABLE ≠ EXECUTABLE ≠ AUTHORIZED ≠ GOVERNED ≠ VERIFIED ≠ PRODUCTION_READY.
-Una afirmación de LLM no es evidencia forense. Se exige código de salida 0 y pruebas reales.
-Los 1.900+ skills de catálogos no demostrados son: CLAIM_UNVERIFIED.
-
-SEGURIDAD Y SECRETOS (SECCIÓN 21):
-- Todo contenido pasa por la frontera de sanitización.
-- Aprobaciones criptográficas atadas a hash SHA-256.
-- Sandboxes obligatorios para cualquier ejecución con efectos secundarios.
-
-ESTRUCTURA DE TUS RESPUESTAS:
-1. Dictamen Arquitectónico Inflexible (Juicio claro: Viable / Críticamente Deficiente / Requiere Rediseño).
-2. Evaluación Epistemológica y de Riesgos (Invariantes, fallos latentes, dependencias).
-3. Recomendación de Arquitectura de Hermes (Software determinista vs Agente único vs Multiagente vs Híbrido).
-4. Próximos pasos en el Ciclo Maestro de 26 Fases.
-`;
+// Re-export system prompt from single source of truth
+export {
+  HERMES_CORE_SYSTEM_PROMPT,
+  VERIFIED_GEMINI_MODELS,
+  DEFAULT_MODEL,
+  HERMES_TEMPERATURE,
+} from '../config/systemPrompt';
 
 export async function* streamHermesResponse(
   message: string,
@@ -58,13 +25,22 @@ export async function* streamHermesResponse(
   const sanitizedUser = sanitizeText(message);
   const totalRedacted = sanitizedUser.redactedCount;
 
-  // 2. Client calls backend proxy endpoint with full-stack server session
+  // 2. Get API key from environment (Vite exposes VITE_* vars to client)
+  const apiKey = import.meta.env.VITE_HERMES_API_KEY;
+
+  // 3. Client calls backend proxy endpoint with full-stack server session
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  };
+
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
   const response = await fetch('/api/hermes/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-    },
+    headers,
     body: JSON.stringify({
       message: sanitizedUser.sanitized,
       history,

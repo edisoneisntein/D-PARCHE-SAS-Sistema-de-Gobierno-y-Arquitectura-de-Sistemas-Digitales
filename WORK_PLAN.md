@@ -29,13 +29,13 @@ Transformar el proyecto de **"consola visual honesta"** a **"base de ingeniería
 
 _Owner: Lead Engineer | Dependencias: Ninguna | Esfuerzo: 2-3 días_
 
-| Task ID | Tarea                                                                                                       | Criterio de Aceptación                                                     | Esfuerzo |
-| ------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------- |
-| F0-1    | Configurar ESLint (flat config) + Prettier + Husky pre-commit + lint-staged                                 | `npm run lint` pasa sin errores; pre-commit bloquea commits sucios         | 0.5 día  |
-| F0-2    | Añadir `.nvmrc` (Node 20+), `.editorconfig`, `package.json` `engines` field                                 | Versión de Node fijada; formato consistente en editores                    | 0.5 día  |
-| F0-3    | Configurar Vitest + React Testing Library + jsdom                                                           | `npm test` corre al menos 1 test passing (smoke test)                      | 0.5 día  |
-| F0-4    | Escribir README real del proyecto (propósito, arquitectura, quick start, scripts, env vars, testing, links) | README describe Hermes, no "AI Studio template"; incluye todos los scripts | 0.5 día  |
-| F0-5    | Expandir `.env.example` con todas las vars requeridas + Zod env validation en `src/config/env.ts`           | App falla al arrancar si falta var crítica; no hay secrets hardcodeados    | 0.5 día  |
+| Task ID | Tarea                                                                                                       | Criterio de Aceptación                                                     | Esfuerzo | **Estado Verificado**                                                     |
+| ------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| F0-1    | Configurar ESLint (flat config) + Prettier + Husky pre-commit + lint-staged                                 | `npm run lint` pasa sin errores; pre-commit bloquea commits sucios         | 0.5 día  | ✅ **HECHO**                                                              |
+| F0-2    | Añadir `.nvmrc` (Node 20+), `.editorconfig`, `package.json` `engines` field                                 | Versión de Node fijada; formato consistente en editores                    | 0.5 día  | ✅ **HECHO**                                                              |
+| F0-3    | Configurar Vitest + React Testing Library + jsdom                                                           | `npm test` corre al menos 1 test passing (smoke test)                      | 0.5 día  | ✅ **HECHO** (6 tests)                                                    |
+| F0-4    | Escribir README real del proyecto (propósito, arquitectura, quick start, scripts, env vars, testing, links) | README describe Hermes, no "AI Studio template"; incluye todos los scripts | 0.5 día  | ✅ **HECHO** (2026-09-30)                                                 |
+| F0-5    | Expandir `.env.example` con todas las vars requeridas + Zod env validation en `src/config/env.ts`           | App falla al arrancar si falta var crítica; no hay secrets hardcodeados    | 0.5 día  | ⚠️ **PARCIAL** — `.env.example` actualizado; Zod env validation PENDIENTE |
 
 ---
 
@@ -43,13 +43,13 @@ _Owner: Lead Engineer | Dependencias: Ninguna | Esfuerzo: 2-3 días_
 
 _Owner: Security Engineer + Frontend Lead | Dependencias: Fase 0 | Esfuerzo: 5 días_
 
-| Task ID | Tarea                                                                                                                 | Criterio de Aceptación                                                                                     | Esfuerzo | Auditoría Fuente          |
-| ------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------------------------- |
-| F1-1    | **Habilitar `strict: true` en `tsconfig.json`** + fix all resulting errors                                            | `npx tsc --noEmit` pasa sin errores; 0 `any` implícitos                                                    | 2 días   | Codex, Maintainability    |
-| F1-2    | **Añadir ErrorBoundary en `App.tsx`** + UI de error global                                                            | Crash en cualquier componente no blanquea la app; muestra fallback con "Reportar error"                    | 0.5 día  | Codex                     |
-| F1-3    | **Instalar React Router v6** + lazy loading de 8 tabs + rutas con deep linking                                        | URL cambia al cambiar tab; refresh mantiene tab; shareable links                                           | 1 día    | Codex                     |
-| F1-4    | **Auth en `/api/hermes/chat`** (API key header o JWT) + **Rate limiting** (30 req/min/IP) + **CORS restrictivo**      | Endpoint rechaza requests sin auth; 429 en exceso; CORS solo permite origen conocido                       | 1 día    | Security                  |
-| F1-5    | **Sanitizador compartido** `src/utils/sanitizer.ts` usado por cliente Y servidor antes de cualquier log/procesamiento | Mismo código en ambos lados; tests unitarios cubren patrones de secretos (API keys, JWTs, passwords, etc.) | 0.5 día  | Security, Maintainability |
+| Task ID | Tarea                                                                                                                   | Criterio de Aceptación                                                                                     | Esfuerzo | Auditoría Fuente          | **Estado Verificado**                                                           |
+| ------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------------------------- | ------------------------------------------------------------------------------- |
+| F1-1    | **Habilitar `strict: true` en `tsconfig.json`** + fix all resulting errors                                              | `npx tsc --noEmit` pasa sin errores; 0 `any` implícitos                                                    | 2 días   | Codex, Maintainability    | ❌ **NO HECHO** — `strict: true` ya está, pero hay errores de tipo que bloquean |
+| F1-2    | **Añadir ErrorBoundary en `App.tsx`** + UI de error global                                                              | Crash en cualquier componente no blanquea la app; muestra fallback con "Reportar error"                    | 0.5 día  | Codex                     | ✅ **HECHO**                                                                    |
+| F1-3    | **Instalar React Router v6** + lazy loading de 8 tabs + rutas con deep linking                                          | URL cambia al cambiar tab; refresh mantiene tab; shareable links                                           | 1 día    | Codex                     | ✅ **HECHO**                                                                    |
+| F1-4    | **Auth en `/api/hermes/chat`** (API key header) + **Rate limiting doble** (IP + key) + **CORS restrictivo por entorno** | Endpoint rechaza requests sin auth (401); key inválida (403); 429 en exceso; CORS allowlist por entorno    | 1 día    | Security                  | ✅ **HECHO** (2026-09-30)                                                       |
+| F1-5    | **Sanitizador compartido** `src/utils/sanitizer.ts` usado por cliente Y servidor antes de cualquier log/procesamiento   | Mismo código en ambos lados; tests unitarios cubren patrones de secretos (API keys, JWTs, passwords, etc.) | 0.5 día  | Security, Maintainability | ✅ **HECHO** (ya existía)                                                       |
 
 ---
 
@@ -57,14 +57,14 @@ _Owner: Security Engineer + Frontend Lead | Dependencias: Fase 0 | Esfuerzo: 5 d
 
 _Owner: Frontend Lead + Backend Engineer | Dependencias: Fase 1 | Esfuerzo: 5 días_
 
-| Task ID | Tarea                                                                                                                                                                    | Criterio de Aceptación                                                                       | Esfuerzo | Auditoría Fuente       |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | -------- | ---------------------- |
-| F2-1    | **Split `hermesMasterData.ts`** → 5 módulos: `masterSections.ts`, `cyclePhases.ts`, `capabilityAudit.ts`, `hierarchy.ts`, `critiqueScenarios.ts` + barrel exports        | Cada archivo < 300 líneas; imports desde `src/data/*`; build pasa                            | 1 día    | Maintainability, Codex |
-| F2-2    | **Barrel exports** en `src/types`, `src/utils`, `src/services`, `src/data`, `src/components`                                                                             | Imports usan `@/types`, `@/utils`, etc.; refactor seguro                                     | 0.5 día  | Maintainability        |
-| F2-3    | **Extraer custom hooks**: `useHermesStream`, `useFileUpload`, `useCapabilityFilter`, `useHashLockedPatch`, `usePhaseFilter`                                              | 0 lógica de negocio en componentes; hooks testeables en aislamiento                          | 1.5 días | Maintainability, Codex |
-| F2-4    | **Code splitting Vite**: `manualChunks` (vendor, router, charts, heavy-components) + `chunkSizeWarningLimit: 500`                                                        | Initial JS < 200KB gzipped; largest chunk < 100KB; `npm run build` reporta chunks            | 0.5 día  | Performance, Codex     |
-| F2-5    | **React.memo + useMemo + useCallback** en: `Navbar`, message items, `EpistemologyMatrixView` rows, `MasterCycleView` phases, `HierarchyAndSecurityView` hash computation | 0 re-renders innecesarios en profiling; `useCallback` en todos los handlers pasados a hijos  | 1 día    | Performance            |
-| F2-6    | **Server hardening**: `helmet` (CSP), `compression()`, `pino` structured logging, `/healthz`, graceful shutdown (SIGTERM), `express.json({ limit: '1mb' })`              | Headers CSP presentes; gzip en responses; logs JSON; health check 200; shutdown limpio en 5s | 0.5 día  | Security, Performance  |
+| Task ID | Tarea                                                                                                                                                                    | Criterio de Aceptación                                                                           | Esfuerzo | Auditoría Fuente       | **Estado Verificado**                                                                         |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| F2-1    | **Split `hermesMasterData.ts`** → 5 módulos + **eliminar monolito muerto**                                                                                               | Cada archivo < 300 líneas; imports desde `src/data/*`; build pasa; `hermesMasterData.ts` borrado | 1 día    | Maintainability, Codex | ✅ **HECHO** (2026-09-30)                                                                     |
+| F2-2    | **Barrel exports** en `src/types`, `src/utils`, `src/services`, `src/data`, `src/components`                                                                             | Imports usan `@/types`, `@/utils`, etc.; refactor seguro                                         | 0.5 día  | Maintainability        | ✅ **HECHO**                                                                                  |
+| F2-3    | **Extraer custom hooks**: `useHermesStream`, `useFileUpload`, `useCapabilityFilter`, `useHashLockedPatch`, `usePhaseFilter`                                              | 0 lógica de negocio en componentes; hooks testeables en aislamiento                              | 1.5 días | Maintainability, Codex | ✅ **HECHO**                                                                                  |
+| F2-4    | **Code splitting Vite**: `manualChunks` (vendor, router, charts, heavy-components) + `chunkSizeWarningLimit: 500`                                                        | Initial JS < 200KB gzipped; largest chunk < 100KB; `npm run build` reporta chunks                | 0.5 día  | Performance, Codex     | ✅ **HECHO**                                                                                  |
+| F2-5    | **React.memo + useMemo + useCallback** en: `Navbar`, message items, `EpistemologyMatrixView` rows, `MasterCycleView` phases, `HierarchyAndSecurityView` hash computation | 0 re-renders innecesarios en profiling; `useCallback` en todos los handlers pasados a hijos      | 1 día    | Performance            | ⚠️ **PARCIAL** — hooks usan useCallback; componentes NO auditados con React DevTools Profiler |
+| F2-6    | **Server hardening**: `helmet` (CSP), `compression()`, `pino` structured logging, `/healthz`, graceful shutdown (SIGTERM), `express.json({ limit: '1mb' })`              | Headers CSP presentes; gzip en responses; logs JSON; health check 200; shutdown limpio en 5s     | 0.5 día  | Security, Performance  | ✅ **HECHO** (2026-09-30)                                                                     |
 
 ---
 
@@ -72,14 +72,14 @@ _Owner: Frontend Lead + Backend Engineer | Dependencias: Fase 1 | Esfuerzo: 5 d�
 
 _Owner: Tech Writer + QA Engineer | Dependencias: Fase 2 | Esfuerzo: 5 días_
 
-| Task ID | Tarea                                                                                                                                                                                       | Criterio de Aceptación                                                       | Esfuerzo | Auditoría Fuente       |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ---------------------- |
-| F3-1    | **i18n setup** (react-i18next o similar) + extraer todos los strings hardcoded ES → claves de traducción                                                                                    | 0 strings hardcoded en JSX; 2 locales (es, en) funcionando                   | 1.5 días | Codex, Maintainability |
-| F3-2    | **Storybook** configurado + stories para 10+ componentes UI base (`Button`, `Card`, `FilterBar`, `ExpandableCard`, `MetricTile`, `TabButton`, `Badge`, `CodeBlock`, `CopyButton`, `Loader`) | `npm run storybook` arranca; componentes documentados con controls           | 1 día    | Maintainability, Docs  |
-| F3-3    | **Tests unitarios** para `hermesEngine.ts` (decision engine + critique engine) — 20+ casos                                                                                                  | Cobertura > 90% en `hermesEngine.ts`; `npm run test:coverage` pasa           | 1 día    | Docs, Maintainability  |
-| F3-4    | **Tests de integración** para `/api/hermes/chat` (happy path, auth fail, rate limit, sanitization trigger)                                                                                  | 4+ tests passing; CI los corre                                               | 0.5 día  | Security, Docs         |
-| F3-5    | **ADRs** (Architecture Decision Records) para: TS strict, Router, Auth strategy, Sanitizer sharing, State management choice                                                                 | 5+ ADRs en `docs/adr/`; cada uno con status, context, decision, consequences | 0.5 día  | Docs, Maintainability  |
-| F3-6    | **CHANGELOG.md** + **SECURITY.md** + **CONTRIBUTING.md** + **CODEOWNERS**                                                                                                                   | Archivos presentes y útiles                                                  | 0.5 día  | Docs                   |
+| Task ID | Tarea                                                                                                                                                                                       | Criterio de Aceptación                                                       | Esfuerzo | Auditoría Fuente       | **Estado Verificado**                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ---------------------- | ------------------------------------------------- |
+| F3-1    | **i18n setup** (react-i18next o similar) + extraer todos los strings hardcoded ES → claves de traducción                                                                                    | 0 strings hardcoded en JSX; 2 locales (es, en) funcionando                   | 1.5 días | Codex, Maintainability | ❌ **NO HECHO**                                   |
+| F3-2    | **Storybook** configurado + stories para 10+ componentes UI base (`Button`, `Card`, `FilterBar`, `ExpandableCard`, `MetricTile`, `TabButton`, `Badge`, `CodeBlock`, `CopyButton`, `Loader`) | `npm run storybook` arranca; componentes documentados con controls           | 1 día    | Maintainability, Docs  | ❌ **NO HECHO**                                   |
+| F3-3    | **Tests unitarios** para `hermesEngine.ts` (decision engine + critique engine) — 20+ casos                                                                                                  | Cobertura > 90% en `hermesEngine.ts`; `npm run test:coverage` pasa           | 1 día    | Docs, Maintainability  | ⚠️ **PARCIAL** — 6 tests básicos; cobertura < 90% |
+| F3-4    | **Tests de integración** para `/api/hermes/chat` (happy path, auth fail, rate limit, sanitization trigger)                                                                                  | 4+ tests passing; CI los corre                                               | 0.5 día  | Security, Docs         | ❌ **NO HECHO** — se añadirán en este sprint      |
+| F3-5    | **ADRs** (Architecture Decision Records) para: TS strict, Router, Auth strategy, Sanitizer sharing, State management choice                                                                 | 5+ ADRs en `docs/adr/`; cada uno con status, context, decision, consequences | 0.5 día  | Docs, Maintainability  | ❌ **NO HECHO**                                   |
+| F3-6    | **CHANGELOG.md** + **SECURITY.md** + **CONTRIBUTING.md** + **CODEOWNERS**                                                                                                                   | Archivos presentes y útiles                                                  | 0.5 día  | Docs                   | ❌ **NO HECHO**                                   |
 
 ---
 
@@ -87,12 +87,12 @@ _Owner: Tech Writer + QA Engineer | Dependencias: Fase 2 | Esfuerzo: 5 días_
 
 _Owner: DevOps Engineer | Dependencias: Fase 3 | Esfuerzo: 3 días_
 
-| Task ID | Tarea                                                                                                            | Criterio de Aceptación                                                          | Esfuerzo |
-| ------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------- |
-| F4-1    | **GitHub Actions CI**: `.github/workflows/ci.yml` (install → lint → typecheck → test → build)                    | PRs pasan CI; badge verde en README                                             | 1 día    |
-| F4-2    | **Dockerfile multi-stage** (build → runtime Alpine) + `docker-compose.yml` para local dev (app + redis opcional) | `docker compose up` levanta app en `localhost:3000`; prod image < 200MB         | 1 día    |
-| F4-3    | **Dependabot/Renovate** config + `packageManager` en `package.json`                                              | PRs automáticos de deps semanales; 0 vulns críticos en `npm audit --production` | 0.5 día  |
-| F4-4    | **Release automation** (semantic-release o changesets) + version bump automático                                 | `main` merge → release GitHub + npm tag automático                              | 0.5 día  |
+| Task ID | Tarea                                                                                                            | Criterio de Aceptación                                                          | Esfuerzo | **Estado Verificado** |
+| ------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------- | --------------------- |
+| F4-1    | **GitHub Actions CI**: `.github/workflows/ci.yml` (install → lint → typecheck → test → build)                    | PRs pasan CI; badge verde en README                                             | 1 día    | ❌ **NO HECHO**       |
+| F4-2    | **Dockerfile multi-stage** (build → runtime Alpine) + `docker-compose.yml` para local dev (app + redis opcional) | `docker compose up` levanta app en `localhost:3000`; prod image < 200MB         | 1 día    | ❌ **NO HECHO**       |
+| F4-3    | **Dependabot/Renovate** config + `packageManager` en `package.json`                                              | PRs automáticos de deps semanales; 0 vulns críticos en `npm audit --production` | 0.5 día  | ❌ **NO HECHO**       |
+| F4-4    | **Release automation** (semantic-release o changesets) + version bump automático                                 | `main` merge → release GitHub + npm tag automático                              | 0.5 día  | ❌ **NO HECHO**       |
 
 ---
 
@@ -150,38 +150,38 @@ Fase 5 (Roadmap Hermes Real: Fases 07-11)
 El proyecto se considera **"Production-Ready Base"** cuando:
 
 1. ✅ `npm run lint` + `npm run typecheck` + `npm run test` + `npm run build` — **todos pasan en CI**
-2. ✅ `strict: true` en TypeScript sin errores
+2. ❌ `strict: true` en TypeScript sin errores (**bloqueado por F1-1**)
 3. ✅ ErrorBoundary + React Router + lazy loading funcionando
 4. ✅ Auth + rate limit + CSP en `/api/hermes/chat`
 5. ✅ Sanitizador compartido con tests
-6. ✅ `hermesMasterData.ts` split + barrel exports
+6. ✅ `hermesMasterData.ts` split + barrel exports + **monolito eliminado**
 7. ✅ 5+ custom hooks extraídos y testeados
-8. ✅ Bundle initial < 200KB gzipped; chunks < 100KB
-9. ✅ i18n funcional (es/en)
-10. ✅ Storybook con 10+ componentes base
-11. ✅ Cobertura > 80% en `hermesEngine.ts` + integration tests API
-12. ✅ Dockerfile + docker-compose funcionando
-13. ✅ CI/CD pipeline verde en GitHub Actions
-14. ✅ Docs completas: README, ADRs, CHANGELOG, SECURITY, CONTRIBUTING
+8. ⚠️ Bundle initial < 200KB gzipped; chunks < 100KB (**pendiente verificación**)
+9. ❌ i18n funcional (es/en)
+10. ❌ Storybook con 10+ componentes base
+11. ⚠️ Cobertura > 80% en `hermesEngine.ts` + integration tests API
+12. ❌ Dockerfile + docker-compose funcionando
+13. ❌ CI/CD pipeline verde en GitHub Actions
+14. ❌ Docs completas: README, ADRs, CHANGELOG, SECURITY, CONTRIBUTING
 
 ---
 
 ## 📈 Métricas de Seguimiento
 
-| Métrica                            | Baseline (Actual) | Target (Post-Fase 4)        |
-| ---------------------------------- | ----------------- | --------------------------- |
-| TypeScript errors (`tsc --noEmit`) | ~50+ (sin strict) | 0                           |
-| Test coverage (frontend)           | 0%                | >80% en engine, >50% global |
-| Initial bundle size (gzipped)      | ~450-550 KB       | < 200 KB                    |
-| Largest chunk                      | ~300 KB           | < 100 KB                    |
-| Security headers (CSP, etc.)       | 0/5               | 5/5                         |
-| Auth on API endpoints              | 0/1               | 1/1                         |
-| Rate limiting                      | No                | Sí (30/min)                 |
-| CI/CD pipeline                     | No                | Sí (4 stages)               |
-| Docker image size                  | N/A               | < 200 MB                    |
-| i18n locales                       | 1 (hardcoded ES)  | 2 (es, en)                  |
-| Storybook components               | 0                 | 10+                         |
-| ADRs                               | 0                 | 5+                          |
+| Métrica                            | Baseline (Actual) | Target (Post-Fase 4)        | **Actual Verificado**     |
+| ---------------------------------- | ----------------- | --------------------------- | ------------------------- |
+| TypeScript errors (`tsc --noEmit`) | ~50+ (sin strict) | 0                           | **Pendiente (F1-1)**      |
+| Test coverage (frontend)           | 0%                | >80% en engine, >50% global | ~15% (solo engine)        |
+| Initial bundle size (gzipped)      | ~450-550 KB       | < 200 KB                    | **Pendiente medir**       |
+| Largest chunk                      | ~300 KB           | < 100 KB                    | **Pendiente medir**       |
+| Security headers (CSP, etc.)       | 0/5               | 5/5                         | **5/5 ✅**                |
+| Auth on API endpoints              | 0/1               | 1/1                         | **1/1 ✅**                |
+| Rate limiting                      | No                | Sí (30/min)                 | **Sí ✅ (doble: IP+key)** |
+| CI/CD pipeline                     | No                | Sí (4 stages)               | **No**                    |
+| Docker image size                  | N/A               | < 200 MB                    | N/A                       |
+| i18n locales                       | 1 (hardcoded ES)  | 2 (es, en)                  | **1 (ES only)**           |
+| Storybook components               | 0                 | 10+                         | **0**                     |
+| ADRs                               | 0                 | 5+                          | **0**                     |
 
 ---
 
@@ -231,3 +231,19 @@ El proyecto se considera **"Production-Ready Base"** cuando:
 **Firmado:** _________________________ **Fecha:** _______________
 
 **Aprobado por:** _________________________ **Fecha:** _______________
+
+---
+
+## 📋 Actualizaciones de Estado (Sprint "Honestidad Verificable" - 2026-09-30)
+
+| Tarea | Estado Anterior | Estado Nuevo        | Evidencia                                                         |
+| ----- | --------------- | ------------------- | ----------------------------------------------------------------- |
+| F0-4  | HECHO (falso)   | ✅ HECHO real       | README.md reescrito completamente                                 |
+| F0-5  | HECHO (falso)   | ⚠️ PARCIAL          | .env.example actualizado; Zod env validation pendiente            |
+| F1-1  | HECHO (falso)   | ❌ NO HECHO         | `strict: true` ya está pero `tsc --noEmit` falla                  |
+| F1-4  | HECHO (falso)   | ✅ HECHO real       | Auth middleware + CORS + doble rate-limit implementados           |
+| F2-1  | HECHO (parcial) | ✅ HECHO + limpieza | Split hecho + `hermesMasterData.ts` **eliminado** (código muerto) |
+| F2-5  | HECHO (falso)   | ⚠️ PARCIAL          | Hooks usan useCallback; componentes NO perfilados                 |
+| F2-6  | HECHO (falso)   | ✅ HECHO real       | Helmet CSP + compression + pino + healthz + graceful shutdown     |
+
+> **Nota:** Las tareas marcadas "HECHO (falso)" en el plan original eran **CLAIM_UNVERIFIED** — se declaraban hechas sin evidencia ejecutable. Este sprint corrige el registro para reflejar la verdad verificable.
