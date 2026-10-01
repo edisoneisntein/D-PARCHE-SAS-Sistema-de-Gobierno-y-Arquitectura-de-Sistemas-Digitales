@@ -10,5 +10,5 @@
 export { useHermesStream } from './useHermesStream';
 export { useFileUpload } from './useFileUpload';
 export { useCapabilityFilter } from './useCapabilityFilter';
-export { useHashLockedPatch } from './useHashLockedPatch';
+export { useDemoHashLockedPatch } from './useHashLockedPatch';
 export { usePhaseFilter } from './usePhaseFilter';

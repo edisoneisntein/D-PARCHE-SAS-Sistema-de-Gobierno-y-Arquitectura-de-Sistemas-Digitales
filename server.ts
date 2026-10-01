@@ -13,6 +13,17 @@ import compression from 'compression';
 import pino from 'pino';
 import { z } from 'zod';
 import { sanitizeText, computeSha256Sync } from './src/utils/sanitizer';
+import {
+  requireAuth,
+  corsMiddleware,
+  securityHeadersMiddleware,
+  AuthenticatedRequest,
+} from './src/middleware/auth';
+import { getAuthConfig } from './src/config/auth';
+import { HERMES_CORE_SYSTEM_PROMPT } from './src/config/systemPrompt';
+import { getExecutionEngine } from './src/core';
+import { PhaseExecutionRequest } from './src/core/execution-engine';
+import { randomUUID } from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +33,10 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   transport: NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+  redact: {
+    paths: ['req.headers.authorization', 'req.body.message', 'req.body.attachments[*].content'],
+    censor: '**REDACTED**',
+  },
 });
 
 // Security headers via Helmet
@@ -30,8 +45,8 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // React needs unsafe-inline for dev
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: NODE_ENV === 'production' ? ["'self'"] : ["'self'", "'unsafe-inline'"],
+        styleSrc: NODE_ENV === 'production' ? ["'self'"] : ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: ["'self'", 'https://generativelanguage.googleapis.com'],
         fontSrc: ["'self'"],
@@ -42,6 +57,7 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false, // Required for Vite HMR
+    crossOriginResourcePolicy: { policy: 'same-origin' },
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -54,22 +70,28 @@ app.use(
   })
 );
 
+// Security headers middleware (COOP, CORP, etc.)
+app.use(securityHeadersMiddleware);
+
+// CORS middleware
+app.use(corsMiddleware);
+
 // Compression
 app.use(compression());
 
-// Rate limiting
-const apiLimiter = rateLimit({
+// Rate limiting by IP (global)
+const ipLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute per IP
-  message: { error: 'Too many requests, please try again later.' },
+  max: 60, // 60 requests per minute per IP
+  message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
-    logger.warn({ ip: res.req.ip }, 'Rate limit exceeded');
-    res.status(429).json({ error: 'Too many requests, please try again later.' });
+    logger.warn({ ip: res.req.ip }, 'IP rate limit exceeded');
+    res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
   },
 });
-app.use('/api/', apiLimiter);
+app.use('/api/', ipLimiter);
 
 // Body parsing with strict limits
 app.use(express.json({ limit: '1mb' }));
@@ -108,46 +130,6 @@ function getGenAI(): GoogleGenAI {
   return genAIClient;
 }
 
-const HERMES_CORE_SYSTEM_PROMPT = `
-ERES HERMES CORE — SISTEMA DE INGENIERÍA, GOBIERNO Y OPERACIÓN DE SISTEMAS DIGITALES COMPLEJOS.
-Versión: 1.0 (Documento Maestro de Continuidad y Contexto).
-
-Tu rol obligatorio es actuar como:
-- Mentor técnico riguroso.
-- Arquitecto de sistemas soberano.
-- Contraparte crítica sin complacencia.
-
-CRITERIO DE ORO INMUTABLE:
-Prioridad: corrección → evidencia → seguridad → arquitectura → utilidad → velocidad.
-Si una idea del usuario es técnicamente defectuosa, irrealista, innecesariamente compleja, una falacia o una fantasía, debes declararlo explícitamente y con precisión técnica. Nunca seas condescendiente ni protejas decisiones solo porque se haya invertido trabajo en ellas.
-
-DEFINICIÓN MAESTRA DE HERMES (SECCIÓN 2 Y 31):
-"Hermes es un sistema de ingeniería, gobierno y operación capaz de diseñar, construir, validar, desplegar, operar, mantener y evolucionar sistemas digitales complejos —incluyendo software tradicional, agentes de IA y sistemas multiagente— a partir de cualquier intención, requisito, conocimiento, artefacto o sistema existente, utilizando la arquitectura y combinación de componentes que determine apropiadas para cada problema."
-
-LO QUE HERMES NO ES (SECCIÓN 3):
-No eres un wrapper de LLM, ni un conversor de prototipos, ni una colección de skills ni un framework de agentes convencional. Esas son herramientas que puedes gobernar, pero ninguna define tu identidad.
-
-PRINCIPIO CRÍTICO DE ARQUITECTURA (SECCIÓN 7):
-Hermes debe poder decidir NO USAR AGENTES. Multiagente no es un fin en sí mismo.
-Si un problema requiere software determinista (algoritmos, AST, SQL ACID), se dictamina NO USAR AGENTES.
-
-EPISTEMOLOGÍA (SECCIÓN 12 Y 30):
-Distingues rígidamente: DISCOVERED ≠ INSTALLED ≠ AVAILABLE ≠ EXECUTABLE ≠ AUTHORIZED ≠ GOVERNED ≠ VERIFIED ≠ PRODUCTION_READY.
-Una afirmación de LLM no es evidencia forense. Se exige código de salida 0 y pruebas reales.
-Los 1.900+ skills de catálogos no demostrados son: CLAIM_UNVERIFIED.
-
-SEGURIDAD Y SECRETOS (SECCIÓN 21):
-- Todo contenido pasa por la frontera de sanitización.
-- Aprobaciones criptográficas atadas a hash SHA-256.
-- Sandboxes obligatorios para cualquier ejecución con efectos secundarios.
-
-ESTRUCTURA DE TUS RESPUESTAS:
-1. Dictamen Arquitectónico Inflexible (Juicio claro: Viable / Críticamente Deficiente / Requiere Rediseño).
-2. Evaluación Epistemológica y de Riesgos (Invariantes, fallos latentes, dependencias).
-3. Recomendación de Arquitectura de Hermes (Software determinista vs Agente único vs Multiagente vs Híbrido).
-4. Próximos pasos en el Ciclo Maestro de 26 Fases.
-`;
-
 // Zod schemas for request validation
 const AttachmentSchema = z.object({
   name: z.string().min(1).max(255),
@@ -176,9 +158,30 @@ interface SanitizedAttachment {
   redactedCount: number;
 }
 
+// Rate limiting by API key (per-key, stricter)
+const keyLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute per API key
+  message: { error: 'Too many requests for this API key, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.auth?.keyHash) {
+      return `key:${authReq.auth.keyHash}`;
+    }
+    return `ip:${req.ip}`;
+  },
+  handler: (_req, res) => {
+    logger.warn({ ip: res.req.ip }, 'API key rate limit exceeded');
+    res.status(429).json({ error: 'Too many requests for this API key, please try again later.' });
+  },
+});
+
 // Hermes Chat Stream Endpoint
-app.post('/api/hermes/chat', async (req: Request, res: Response) => {
+app.post('/api/hermes/chat', requireAuth, keyLimiter, async (req: Request, res: Response) => {
   const startTime = Date.now();
+  const authReq = req as AuthenticatedRequest;
 
   try {
     // Validate request body
@@ -260,9 +263,11 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
       parts: [{ text: userPromptWithContext }],
     });
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    // Verified model names (as of 2026)
+    const modelsToTry = ['gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-flash-latest'];
     let streamSucceeded = false;
     let lastError: unknown = null;
+    let modelUsed = modelsToTry[0];
 
     for (const modelName of modelsToTry) {
       try {
@@ -274,6 +279,8 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
             temperature: 0.2, // Low temperature for high deterministic rigor
           },
         });
+
+        modelUsed = modelName;
 
         for await (const chunk of responseStream) {
           if (chunk.text) {
@@ -300,9 +307,10 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
     logger.info(
       {
         duration: Date.now() - startTime,
-        modelUsed: modelsToTry[0],
+        modelUsed,
         totalRedacted,
         attachmentsCount: attachments.length,
+        keyHash: authReq.auth?.keyHash?.substring(0, 8),
       },
       'Chat request completed'
     );
@@ -315,6 +323,193 @@ app.post('/api/hermes/chat', async (req: Request, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
       res.end();
     }
+  }
+});
+
+// ==================== Phase Execution Endpoints ====================
+
+// Zod schema for phase execution request
+const PhaseExecutionRequestSchema = z.object({
+  phaseId: z.string().min(1).max(100),
+  taskDag: z.object({
+    nodes: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(100),
+          type: z.enum(['shell', 'ai_generate', 'ai_stream']),
+          command: z.string().optional(),
+          args: z.array(z.string()).optional(),
+          prompt: z.string().optional(),
+          model: z.string().optional(),
+          systemInstruction: z.string().optional(),
+          temperature: z.number().min(0).max(2).optional(),
+          timeoutMs: z.number().positive().optional(),
+          dependencies: z.array(z.string()).optional(),
+        })
+      )
+      .min(1)
+      .max(50),
+    edges: z
+      .array(
+        z.object({
+          from: z.string().min(1),
+          to: z.string().min(1),
+        })
+      )
+      .max(100)
+      .optional()
+      .default([]),
+  }),
+  approvals: z
+    .array(
+      z.object({
+        targetId: z.string().min(1),
+        targetHash: z.string().length(64), // SHA-256 hex
+        hmac: z.string().length(64), // HMAC-SHA256 hex
+      })
+    )
+    .max(20)
+    .optional()
+    .default([]),
+});
+
+// Phase execute endpoint (SSE)
+app.post(
+  '/api/hermes/phase/execute',
+  requireAuth,
+  keyLimiter,
+  async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const authReq = req as AuthenticatedRequest;
+
+    try {
+      // Validate request body
+      const validation = PhaseExecutionRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        logger.warn({ errors: validation.error.flatten() }, 'Invalid phase execution request');
+        res
+          .status(400)
+          .json({ error: 'Invalid request body', details: validation.error.flatten() });
+        return;
+      }
+
+      const request: PhaseExecutionRequest = validation.data;
+
+      // Setup Server-Sent Events (SSE)
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      // Send initial metadata
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'meta',
+          phaseId: request.phaseId,
+          executionId: randomUUID(),
+          taskCount: request.taskDag.nodes.length,
+        })}\n\n`
+      );
+
+      const engine = getExecutionEngine();
+
+      // Execute phase and stream events
+      for await (const event of engine.executePhase(request)) {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+
+      logger.info(
+        {
+          duration: Date.now() - startTime,
+          phaseId: request.phaseId,
+          keyHash: authReq.auth?.keyHash?.substring(0, 8),
+        },
+        'Phase execution completed'
+      );
+    } catch (error) {
+      const err = error as Error;
+      logger.error({ err, duration: Date.now() - startTime }, 'Error in /api/hermes/phase/execute');
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Error en ejecución de fase' });
+      } else {
+        res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+        res.end();
+      }
+    }
+  }
+);
+
+// Phase status endpoint
+app.get(
+  '/api/hermes/phase/status/:executionId',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const executionId = req.params.executionId;
+      if (!executionId) {
+        res.status(400).json({ error: 'executionId parameter required' });
+        return;
+      }
+      const engine = getExecutionEngine();
+      const status = engine.getPhaseStatus(executionId);
+
+      if (!status) {
+        res.status(404).json({ error: 'Phase execution not found' });
+        return;
+      }
+
+      const checkpoints = engine.getPhaseCheckpoints(status.phase_id);
+
+      res.json({
+        executionId: status.id,
+        phaseId: status.phase_id,
+        status: status.status,
+        taskDag: JSON.parse(status.task_dag_json),
+        approvalHashes: JSON.parse(status.approval_hashes),
+        createdAt: status.created_at,
+        updatedAt: status.updated_at,
+        completedAt: status.completed_at,
+        checkpoints: checkpoints.map((cp) => ({
+          id: cp.id,
+          taskId: cp.task_id,
+          status: cp.status,
+          hash: cp.hash,
+          prevHash: cp.prev_hash,
+          createdAt: cp.created_at,
+          updatedAt: cp.updated_at,
+        })),
+      });
+    } catch (error) {
+      const err = error as Error;
+      logger.error({ err }, 'Error in /api/hermes/phase/status');
+      res.status(500).json({ error: err.message || 'Error obteniendo estado de fase' });
+    }
+  }
+);
+
+// Phase recovery endpoint
+app.post('/api/hermes/phase/recover/:phaseId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const phaseId = req.params.phaseId;
+    if (!phaseId) {
+      res.status(400).json({ error: 'phaseId parameter required' });
+      return;
+    }
+    const engine = getExecutionEngine();
+    const result = engine.recoverPhase(phaseId);
+
+    res.json({
+      phaseId,
+      recovered: result.recovered,
+      lastCheckpoint: result.lastCheckpoint,
+    });
+  } catch (error) {
+    const err = error as Error;
+    logger.error({ err }, 'Error in /api/hermes/phase/recover');
+    res.status(500).json({ error: err.message || 'Error en recuperación de fase' });
   }
 });
 
@@ -344,7 +539,17 @@ async function startServer() {
   }
 
   const server = app.listen(PORT, () => {
-    logger.info({ port: PORT, env: NODE_ENV }, `Hermes Server running on port ${PORT}`);
+    const authConfig = getAuthConfig();
+    logger.info(
+      {
+        port: PORT,
+        env: NODE_ENV,
+        authRequired: authConfig.requireAuth,
+        corsOrigins: authConfig.corsOrigins,
+        keyHashesConfigured: authConfig.keyHashes.size,
+      },
+      `Hermes Server running on port ${PORT}`
+    );
   });
 
   // Graceful shutdown
